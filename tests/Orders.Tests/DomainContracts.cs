@@ -18,5 +18,16 @@ public class DomainContracts
         Assert.Equal(2, (await store.Read(default)).Value.Requests.Count);
     }
 
+
+    [Fact] public async Task ReadAndReplayDoNotWrite()
+    {
+        var store = new HookStore(); var engine = new OrdersEngine(store);
+        var order = await engine.Submit("alice", "read-only-key", new("SKU-1", 1));
+        var writes = store.Writes;
+        await engine.Submit("alice", "read-only-key", new("SKU-1", 1));
+        await engine.Get("alice", order.Order.Id); await engine.Get("bob", order.Order.Id);
+        Assert.Equal(writes, store.Writes);
+    }
+
 // TESTS
 }
