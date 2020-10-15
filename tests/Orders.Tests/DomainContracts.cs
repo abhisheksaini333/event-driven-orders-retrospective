@@ -29,5 +29,19 @@ public class DomainContracts
         Assert.Equal(writes, store.Writes);
     }
 
+
+    [Fact] public async Task ConflictPreservesCompetingOrder()
+    {
+        var store = new HookStore(); var competingId = "";
+        store.BeforeWrite = async (_, _, ct) => {
+            if (store.Writes == 1) competingId = (await new OrdersEngine(store.Inner).Submit("bob", "competing-key", new("SKU-2", 2), ct)).Order.Id;
+            return null;
+        };
+        var accepted = await new OrdersEngine(store).Submit("alice", "original-key", new("SKU-1", 1));
+        var ledger = (await store.Inner.Read(default)).Value;
+        Assert.Equal(2, store.Writes); Assert.Equal(2, ledger.Orders.Count);
+        Assert.Contains(competingId, ledger.Orders.Keys); Assert.Contains(accepted.Order.Id, ledger.Orders.Keys);
+    }
+
 // TESTS
 }
