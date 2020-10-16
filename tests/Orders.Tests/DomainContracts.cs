@@ -43,5 +43,13 @@ public class DomainContracts
         Assert.Contains(competingId, ledger.Orders.Keys); Assert.Contains(accepted.Order.Id, ledger.Orders.Keys);
     }
 
+
+    [Fact] public async Task ConflictExhaustionIsBounded()
+    {
+        var store = new HookStore { BeforeWrite = (_, _, _) => Task.FromResult<bool?>(false) };
+        await Assert.ThrowsAsync<LedgerBusy>(() => new OrdersEngine(store).Submit("alice", "exhausted-key", new("SKU-1", 1)));
+        Assert.Equal(32, store.Writes); Assert.Empty((await store.Inner.Read(default)).Value.Orders);
+    }
+
 // TESTS
 }
