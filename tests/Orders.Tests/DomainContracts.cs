@@ -51,5 +51,14 @@ public class DomainContracts
         Assert.Equal(32, store.Writes); Assert.Empty((await store.Inner.Read(default)).Value.Orders);
     }
 
+
+    [Fact] public async Task CancellationDuringContention()
+    {
+        using var cancellation = new CancellationTokenSource(); var store = new HookStore();
+        store.BeforeWrite = (_, _, _) => { cancellation.Cancel(); return Task.FromResult<bool?>(false); };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new OrdersEngine(store).Submit("alice", "cancel-retry", new("SKU-1", 1), cancellation.Token));
+        Assert.Equal(1, store.Writes); Assert.Empty((await store.Inner.Read(default)).Value.Orders);
+    }
+
 // TESTS
 }
