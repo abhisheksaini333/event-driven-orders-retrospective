@@ -60,5 +60,15 @@ public class DomainContracts
         Assert.Equal(1, store.Writes); Assert.Empty((await store.Inner.Read(default)).Value.Orders);
     }
 
+
+    [Fact] public async Task CommittedCancellationReplays()
+    {
+        var store = new HookStore { AfterWrite = _ => throw new OperationCanceledException("acknowledgment lost") };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new OrdersEngine(store).Submit("alice", "committed-key", new("SKU-1", 1)));
+        var replay = await new OrdersEngine(store.Inner).Submit("alice", "committed-key", new("SKU-1", 1));
+        Assert.False(replay.Created); Assert.Single((await store.Inner.Read(default)).Value.Orders);
+        Assert.Single((await store.Inner.Read(default)).Value.Outbox);
+    }
+
 // TESTS
 }
