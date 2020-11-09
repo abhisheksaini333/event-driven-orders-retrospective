@@ -70,5 +70,17 @@ public class DomainContracts
         Assert.Single((await store.Inner.Read(default)).Value.Outbox);
     }
 
+
+    [Fact] public async Task ConcurrentDuplicateDelivery()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        var accepted = await engine.Submit("alice", "duplicate-key", new("SKU-1", 1));
+        var message = new OrderEvent(accepted.Order.EventId, accepted.Order.Id);
+        var outcomes = await Task.WhenAll(Enumerable.Range(0, 24).Select(_ => Task.Run(() => new OrdersEngine(store).Process(message))));
+        Assert.All(outcomes, status => Assert.Equal("SUCCESS", status));
+        var ledger = (await store.Read(default)).Value;
+        Assert.Single(ledger.Receipts); Assert.Equal("fulfilled", ledger.Orders[accepted.Order.Id].Status);
+    }
+
 // TESTS
 }
