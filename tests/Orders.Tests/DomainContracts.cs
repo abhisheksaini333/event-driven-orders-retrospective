@@ -82,5 +82,16 @@ public class DomainContracts
         Assert.Single(ledger.Receipts); Assert.Equal("fulfilled", ledger.Orders[accepted.Order.Id].Status);
     }
 
+
+    [Fact] public async Task CrossOrderEventCannotFulfill()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        var first = await engine.Submit("alice", "first-event", new("SKU-1", 1));
+        var second = await engine.Submit("alice", "second-event", new("SKU-1", 1));
+        Assert.Equal("DROP", await engine.Process(new(first.Order.EventId, second.Order.Id)));
+        var ledger = (await store.Read(default)).Value;
+        Assert.Empty(ledger.Receipts); Assert.All(ledger.Orders.Values, order => Assert.Equal("accepted", order.Status));
+    }
+
 // TESTS
 }
