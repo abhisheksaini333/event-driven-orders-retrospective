@@ -93,5 +93,26 @@ public class DomainContracts
         Assert.Empty(ledger.Receipts); Assert.All(ledger.Orders.Values, order => Assert.Equal("accepted", order.Status));
     }
 
+
+    [Fact] public async Task RemovalRacePreservesOtherState()
+    {
+        var store = new HookStore(); var engine = new OrdersEngine(store);
+        var first = await engine.Submit("alice", "first-race-key", new("SKU-1", 1));
+        var secondId = ""; var injected = false;
+        store.BeforeWrite = async (_, _, ct) => {
+            if (!injected) {
+                injected = true; var rival = new OrdersEngine(store.Inner);
+                secondId = (await rival.Submit("bob", "second-race-key", new("SKU-2", 2), ct)).Order.Id;
+                await rival.Process(new(first.Order.EventId, first.Order.Id), ct);
+            }
+            return null;
+        };
+        Assert.Equal(1, await engine.Flush(new RecordingPublisher()));
+        var ledger = (await store.Inner.Read(default)).Value;
+        Assert.Equal(2, ledger.Orders.Count); Assert.Single(ledger.Outbox); Assert.Single(ledger.Receipts);
+        Assert.Equal(secondId, ledger.Outbox.Values.Single().OrderId);
+        Assert.Equal("fulfilled", ledger.Orders[first.Order.Id].Status);
+    }
+
 // TESTS
 }
