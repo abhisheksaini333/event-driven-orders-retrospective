@@ -114,5 +114,19 @@ public class DomainContracts
         Assert.Equal("fulfilled", ledger.Orders[first.Order.Id].Status);
     }
 
+
+    [Fact] public async Task PartialBatchFailureRetainsWork()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        for (var i = 0; i < 3; i++) await engine.Submit("alice", "batch-key-" + i, new("SKU-1", 1));
+        var calls = 0; var successful = "";
+        await Assert.ThrowsAsync<HttpRequestException>(() => engine.Flush(new DelegatePublisher((message, _) => {
+            if (++calls == 2) throw new HttpRequestException("unavailable");
+            successful = message.EventId; return Task.CompletedTask;
+        })));
+        var pending = (await store.Read(default)).Value.Outbox;
+        Assert.Equal(2, pending.Count); Assert.DoesNotContain(successful, pending.Keys);
+    }
+
 // TESTS
 }
