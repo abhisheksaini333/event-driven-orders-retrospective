@@ -128,5 +128,17 @@ public class DomainContracts
         Assert.Equal(2, pending.Count); Assert.DoesNotContain(successful, pending.Keys);
     }
 
+
+    [Fact] public async Task CommittedRemovalIsNotRecreated()
+    {
+        var store = new HookStore(); var engine = new OrdersEngine(store);
+        await engine.Submit("alice", "removal-key", new("SKU-1", 1));
+        store.AfterWrite = _ => throw new HttpRequestException("state response lost");
+        var publisher = new RecordingPublisher();
+        await Assert.ThrowsAsync<HttpRequestException>(() => engine.Flush(publisher));
+        Assert.Equal(0, await new OrdersEngine(store.Inner).Flush(publisher));
+        Assert.Single(publisher.Messages); Assert.Empty((await store.Inner.Read(default)).Value.Outbox);
+    }
+
 // TESTS
 }
