@@ -140,5 +140,15 @@ public class DomainContracts
         Assert.Single(publisher.Messages); Assert.Empty((await store.Inner.Read(default)).Value.Outbox);
     }
 
+
+    [Fact] public async Task BatchLimitPreservesRemainder()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        for (var i = 0; i < 30; i++) await engine.Submit("alice", "limited-key-" + i, new("SKU-1", 1));
+        var publisher = new RecordingPublisher(); Assert.Equal(25, await engine.Flush(publisher));
+        Assert.Equal(25, publisher.Messages.Count); Assert.Equal(5, (await store.Read(default)).Value.Outbox.Count);
+        Assert.Equal(5, await engine.Flush(publisher)); Assert.Empty((await store.Read(default)).Value.Outbox);
+    }
+
 // TESTS
 }
