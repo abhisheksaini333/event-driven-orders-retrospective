@@ -150,5 +150,22 @@ public class DomainContracts
         Assert.Equal(5, await engine.Flush(publisher)); Assert.Empty((await store.Read(default)).Value.Outbox);
     }
 
+
+    [Fact] public async Task CompetingDispatchersPreserveReceipt()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        var accepted = await engine.Submit("alice", "dispatch-race", new("SKU-1", 1));
+        var arrivals = 0; var barrier = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var publisher = new DelegatePublisher(async (message, ct) => {
+            if (Interlocked.Increment(ref arrivals) == 2) barrier.SetResult();
+            await barrier.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
+            await new OrdersEngine(store).Process(message, ct);
+        });
+        await Task.WhenAll(engine.Flush(publisher), new OrdersEngine(store).Flush(publisher));
+        var ledger = (await store.Read(default)).Value;
+        Assert.Equal(2, arrivals); Assert.Single(ledger.Receipts); Assert.Empty(ledger.Outbox);
+        Assert.Equal("fulfilled", ledger.Orders[accepted.Order.Id].Status);
+    }
+
 // TESTS
 }
