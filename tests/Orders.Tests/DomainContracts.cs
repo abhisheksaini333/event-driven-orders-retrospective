@@ -167,5 +167,14 @@ public class DomainContracts
         Assert.Equal("fulfilled", ledger.Orders[accepted.Order.Id].Status);
     }
 
+
+    [Fact] public async Task RejectTrailingNewlines()
+    {
+        var store = new HookStore(); var engine = new OrdersEngine(store);
+        await Assert.ThrowsAsync<InvalidOrder>(() => engine.Submit("alice", "valid-key", new("SKU-1\n", 1)));
+        await Assert.ThrowsAsync<InvalidOrder>(() => engine.Submit("alice", "valid-key\n", new("SKU-1", 1)));
+        Assert.Equal(0, store.Reads); Assert.Equal(0, store.Writes);
+    }
+
 // TESTS
 }

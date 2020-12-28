@@ -25,8 +25,8 @@ public sealed class OrdersEngine(ILedgerStore store)
 {
     public async Task<(Order Order, bool Created)> Submit(string owner, string key, CreateOrder input, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(owner) || key is null || !System.Text.RegularExpressions.Regex.IsMatch(key, "^[A-Za-z0-9_-]{8,64}$") ||
-            input.Sku is null || !System.Text.RegularExpressions.Regex.IsMatch(input.Sku, "^[A-Z0-9-]{1,32}$") || input.Quantity is < 1 or > 1000)
+        if (string.IsNullOrWhiteSpace(owner) || key is null || !System.Text.RegularExpressions.Regex.IsMatch(key, @"\A[A-Za-z0-9_-]{8,64}\z") ||
+            input.Sku is null || !System.Text.RegularExpressions.Regex.IsMatch(input.Sku, @"\A[A-Z0-9-]{1,32}\z") || input.Quantity is < 1 or > 1000)
             throw new InvalidOrder();
         var requestKey = Hash(owner + "\n" + key);
         var fingerprint = Hash(input.Sku + "\n" + input.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture));
