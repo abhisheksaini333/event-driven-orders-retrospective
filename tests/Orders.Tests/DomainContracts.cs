@@ -176,5 +176,13 @@ public class DomainContracts
         Assert.Equal(0, store.Reads); Assert.Equal(0, store.Writes);
     }
 
+
+    [Fact] public async Task NullRequestIsValidationFailure()
+    {
+        var store = new HookStore();
+        await Assert.ThrowsAsync<InvalidOrder>(() => new OrdersEngine(store).Submit("alice", "null-request", null!));
+        Assert.Equal(0, store.Reads);
+    }
+
 // TESTS
 }
