@@ -184,5 +184,15 @@ public class DomainContracts
         Assert.Equal(0, store.Reads);
     }
 
+
+    [Fact] public async Task InvalidOwnersDoNotReachState()
+    {
+        var store = new HookStore(); var engine = new OrdersEngine(store);
+        foreach (var owner in new[] { new string('a', 257), "alice\nadmin", "alice\0admin" })
+            await Assert.ThrowsAsync<InvalidOrder>(() => engine.Submit(owner, "owner-policy", new("SKU-1", 1)));
+        Assert.Equal(0, store.Reads);
+        Assert.True((await engine.Submit("customer-\u00e9", "owner-policy", new("SKU-1", 1))).Created);
+    }
+
 // TESTS
 }

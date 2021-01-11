@@ -25,7 +25,7 @@ public sealed class OrdersEngine(ILedgerStore store)
 {
     public async Task<(Order Order, bool Created)> Submit(string owner, string key, CreateOrder input, CancellationToken ct = default)
     {
-        if (input is null || string.IsNullOrWhiteSpace(owner) || key is null || !System.Text.RegularExpressions.Regex.IsMatch(key, @"\A[A-Za-z0-9_-]{8,64}\z") ||
+        if (input is null || string.IsNullOrWhiteSpace(owner) || owner.Length > 256 || owner.Any(char.IsControl) || key is null || !System.Text.RegularExpressions.Regex.IsMatch(key, @"\A[A-Za-z0-9_-]{8,64}\z") ||
             input.Sku is null || !System.Text.RegularExpressions.Regex.IsMatch(input.Sku, @"\A[A-Z0-9-]{1,32}\z") || input.Quantity is < 1 or > 1000)
             throw new InvalidOrder();
         var requestKey = Hash(owner + "\n" + key);
