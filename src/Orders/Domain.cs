@@ -47,6 +47,7 @@ public sealed class OrdersEngine(ILedgerStore store)
 
     public async Task<Order?> Get(string owner, string id, CancellationToken ct = default)
     {
+        if (!Guid.TryParseExact(id, "N", out _)) return null;
         var state = await store.Read(ct);
         return state.Value.Orders.TryGetValue(id, out var order) && order.Owner == owner ? order : null;
     }

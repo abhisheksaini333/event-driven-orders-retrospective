@@ -194,5 +194,16 @@ public class DomainContracts
         Assert.True((await engine.Submit("customer-\u00e9", "owner-policy", new("SKU-1", 1))).Created);
     }
 
+
+    [Fact] public async Task MalformedReadIdsAvoidState()
+    {
+        var store = new HookStore(); var engine = new OrdersEngine(store);
+        foreach (var id in new[] { "not-an-order", new string('a', 10000), "", "../orders" })
+            Assert.Null(await engine.Get("alice", id));
+        Assert.Equal(0, store.Reads);
+        Assert.Null(await engine.Get("alice", Guid.NewGuid().ToString("N")));
+        Assert.Equal(1, store.Reads);
+    }
+
 // TESTS
 }
