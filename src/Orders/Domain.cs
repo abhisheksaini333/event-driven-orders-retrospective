@@ -20,14 +20,21 @@ public interface ILedgerStore
 public interface IEventPublisher { Task Publish(OrderEvent message, CancellationToken cancellationToken); }
 public sealed class IdempotencyConflict : Exception;
 public sealed class LedgerBusy : Exception;
-public sealed class InvalidOrder : Exception;
+public sealed class InvalidOrder(IReadOnlyDictionary<string, string[]>? errors = null) : Exception("Order validation failed")
+{
+    public IReadOnlyDictionary<string, string[]> Errors { get; } = errors ?? new Dictionary<string, string[]>();
+}
 public sealed class OrdersEngine(ILedgerStore store)
 {
     public async Task<(Order Order, bool Created)> Submit(string owner, string key, CreateOrder input, CancellationToken ct = default)
     {
-        if (input is null || string.IsNullOrWhiteSpace(owner) || owner.Length > 256 || owner.Any(char.IsControl) || key is null || !System.Text.RegularExpressions.Regex.IsMatch(key, @"\A[A-Za-z0-9_-]{8,64}\z") ||
-            input.Sku is null || !System.Text.RegularExpressions.Regex.IsMatch(input.Sku, @"\A[A-Z0-9-]{1,32}\z") || input.Quantity is < 1 or > 1000)
-            throw new InvalidOrder();
+        var errors = new Dictionary<string, string[]>();
+        if (input is null) throw new InvalidOrder(new Dictionary<string, string[]> { ["request"] = ["A request body is required."] });
+        if (string.IsNullOrWhiteSpace(owner) || owner.Length > 256 || owner.Any(char.IsControl)) errors["owner"] = ["Owner must contain 1 to 256 characters without controls."];
+        if (key is null || !System.Text.RegularExpressions.Regex.IsMatch(key, @"\A[A-Za-z0-9_-]{8,64}\z")) errors["idempotencyKey"] = ["Use 8 to 64 ASCII letters, digits, underscores or hyphens."];
+        if (input.Sku is null || !System.Text.RegularExpressions.Regex.IsMatch(input.Sku, @"\A[A-Z0-9-]{1,32}\z")) errors["sku"] = ["Use 1 to 32 uppercase ASCII letters, digits or hyphens."];
+        if (input.Quantity is < 1 or > 1000) errors["quantity"] = ["Quantity must be between 1 and 1000."];
+        if (errors.Count != 0) throw new InvalidOrder(errors);
         var requestKey = Hash(owner + "\n" + key);
         var fingerprint = Hash(input.Sku + "\n" + input.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture));
         return await Mutate(ledger =>
@@ -37,7 +44,7 @@ public sealed class OrdersEngine(ILedgerStore store)
                 if (previous.Fingerprint != fingerprint) throw new IdempotencyConflict();
                 return ((ledger.Orders[previous.OrderId], false), false);
             }
-            var order = new Order(Guid.NewGuid().ToString("N"), owner, input.Sku, input.Quantity, "accepted", Guid.NewGuid().ToString("N"));
+            var order = new Order(Guid.NewGuid().ToString("N"), owner, input.Sku!, input.Quantity, "accepted", Guid.NewGuid().ToString("N"));
             ledger.Orders.Add(order.Id, order);
             ledger.Requests.Add(requestKey, new(fingerprint, order.Id));
             ledger.Outbox.Add(order.EventId, new(order.EventId, order.Id));

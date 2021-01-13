@@ -205,5 +205,15 @@ public class DomainContracts
         Assert.Equal(1, store.Reads);
     }
 
+
+    [Fact] public async Task ValidationIdentifiesEveryInvalidField()
+    {
+        var failure = await Assert.ThrowsAsync<InvalidOrder>(() => new OrdersEngine(new MemoryStore()).Submit("", "short", new("bad!", -1)));
+        var property = typeof(InvalidOrder).GetProperty("Errors"); Assert.NotNull(property);
+        var errors = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string[]>>(property.GetValue(failure));
+        Assert.Equal(new[] { "idempotencyKey", "owner", "quantity", "sku" }, errors.Keys.Order().ToArray());
+        Assert.All(errors.Values, messages => Assert.NotEmpty(messages));
+    }
+
 // TESTS
 }
