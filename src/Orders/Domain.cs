@@ -1,7 +1,7 @@
 namespace Orders;
 
 public sealed record CreateOrder(string Sku, int Quantity);
-public sealed record Order(string Id, string Owner, string Sku, int Quantity, string Status, string EventId);
+public sealed record Order(string Id, string Owner, string Sku, int Quantity, string Status, string EventId, DateTimeOffset? AcceptedAt = null, DateTimeOffset? FulfilledAt = null);
 public sealed record OrderEvent(string EventId, string OrderId, int Version = 1);
 public sealed record RequestRecord(string Fingerprint, string OrderId);
 public sealed class Ledger
@@ -44,7 +44,7 @@ public sealed class OrdersEngine(ILedgerStore store)
                 if (previous.Fingerprint != fingerprint) throw new IdempotencyConflict();
                 return ((ledger.Orders[previous.OrderId], false), false);
             }
-            var order = new Order(Guid.NewGuid().ToString("N"), owner, input.Sku!, input.Quantity, "accepted", Guid.NewGuid().ToString("N"));
+            var order = new Order(Guid.NewGuid().ToString("N"), owner, input.Sku!, input.Quantity, "accepted", Guid.NewGuid().ToString("N"), TimeProvider.System.GetUtcNow());
             ledger.Orders.Add(order.Id, order);
             ledger.Requests.Add(requestKey, new(fingerprint, order.Id));
             ledger.Outbox.Add(order.EventId, new(order.EventId, order.Id));
@@ -65,7 +65,7 @@ public sealed class OrdersEngine(ILedgerStore store)
             !ledger.Orders.TryGetValue(message.OrderId, out var order) || order.EventId != message.EventId)
             return ("DROP", false);
         if (ledger.Receipts.Contains(message.EventId)) return ("SUCCESS", false);
-        ledger.Orders[order.Id] = order with { Status = "fulfilled" };
+        ledger.Orders[order.Id] = order with { Status = "fulfilled", FulfilledAt = TimeProvider.System.GetUtcNow() };
         ledger.Receipts.Add(message.EventId);
         return ("SUCCESS", true);
     }, ct);

@@ -54,3 +54,5 @@ Run `python3 scripts/benchmark.py --requests 100 --concurrency 4 --output .local
 Use the same CPU/memory allocation, image versions, ledger size and request/concurrency settings when comparing runs. Existing state increases serialization work, so a later run on a larger ledger is not a like-for-like speed regression. Completion timing includes polling, and the result is a local baseline rather than a service-level objective. The configured maximum of 1,000 requests and concurrency 16 bounds accidental load.
 
 Before considering a larger deployment, validate TLS and secret rotation, rate limiting, retention, durable dead-letter/quarantine, external-effect idempotency, backups, state migration, container vulnerabilities, sustained concurrency, and network/disk failure recovery. These are concrete extensions beyond the current synthetic exercise.
+
+New orders include trusted UTC `acceptedAt` and `fulfilledAt` timestamps. Existing stored orders without those fields retain null timestamps; replay never invents a historical acceptance time.

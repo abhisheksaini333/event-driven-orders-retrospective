@@ -215,5 +215,25 @@ public class DomainContracts
         Assert.All(errors.Values, messages => Assert.NotEmpty(messages));
     }
 
+
+    [Fact] public async Task LifecycleTimestampsSurviveReplay()
+    {
+        var before = DateTimeOffset.UtcNow; var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        var accepted = await engine.Submit("alice", "timestamp-key", new("SKU-1", 1));
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var submitted = JsonSerializer.SerializeToElement(accepted.Order, options);
+        Assert.True(submitted.TryGetProperty("acceptedAt", out var created));
+        Assert.InRange(created.GetDateTimeOffset(), before, DateTimeOffset.UtcNow);
+        Assert.Equal(JsonValueKind.Null, submitted.GetProperty("fulfilledAt").ValueKind);
+        await engine.Process(new(accepted.Order.EventId, accepted.Order.Id));
+        var first = await new OrdersEngine(store).Get("alice", accepted.Order.Id);
+        await engine.Process(new(accepted.Order.EventId, accepted.Order.Id));
+        var second = await new OrdersEngine(store).Get("alice", accepted.Order.Id);
+        Assert.Equal(first, second);
+        var completed = JsonSerializer.SerializeToElement(second, options);
+        Assert.Equal(created.GetString(), completed.GetProperty("acceptedAt").GetString());
+        Assert.True(completed.GetProperty("fulfilledAt").GetDateTimeOffset() >= created.GetDateTimeOffset());
+    }
+
 // TESTS
 }
