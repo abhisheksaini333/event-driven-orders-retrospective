@@ -12,6 +12,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients) : ILedgerStore
         response.EnsureSuccessStatusCode();
         if (response.StatusCode == HttpStatusCode.NoContent) return new(new Ledger(), "0");
         var ledger = await response.Content.ReadFromJsonAsync<Ledger>(ct) ?? throw new HttpRequestException("Invalid state response");
+        if (ledger.SchemaVersion != 1) throw new HttpRequestException("Unsupported ledger schema");
         // Dapr's Redis ETag is an unquoted number; HttpHeaders.ETag rejects it as RFC entity-tag syntax.
         var etag = response.Headers.TryGetValues("ETag", out var versions) ? versions.Single().Trim('"') : throw new HttpRequestException("State ETag is missing");
         return new(ledger, etag);

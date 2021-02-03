@@ -6,6 +6,7 @@ public sealed record OrderEvent(string EventId, string OrderId, int Version = 1)
 public sealed record RequestRecord(string Fingerprint, string OrderId);
 public sealed class Ledger
 {
+    public int SchemaVersion { get; set; } = 1;
     public Dictionary<string, Order> Orders { get; set; } = new();
     public Dictionary<string, RequestRecord> Requests { get; set; } = new();
     public Dictionary<string, OrderEvent> Outbox { get; set; } = new();
