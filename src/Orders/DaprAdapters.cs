@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Orders;
 public sealed class DaprLedgerStore(IHttpClientFactory clients) : ILedgerStore
@@ -11,7 +12,17 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients) : ILedgerStore
         using var response = await clients.CreateClient("dapr").GetAsync(StatePath + "/" + Key + "?consistency=strong", ct);
         response.EnsureSuccessStatusCode();
         if (response.StatusCode == HttpStatusCode.NoContent) return new(new Ledger(), "0");
-        var ledger = await response.Content.ReadFromJsonAsync<Ledger>(ct) ?? throw new HttpRequestException("Invalid state response");
+        Ledger ledger;
+        try
+        {
+            var document = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+            if (document.ValueKind != JsonValueKind.Object || new[] { "orders", "requests", "outbox", "receipts" }.Any(name => !document.TryGetProperty(name, out _)))
+                throw new HttpRequestException("State response is missing required ledger collections");
+            ledger = document.Deserialize<Ledger>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new HttpRequestException("Invalid state response");
+        }
+        catch (JsonException exception) { throw new HttpRequestException("Invalid state JSON", exception); }
+        if (ledger.Orders is null || ledger.Requests is null || ledger.Outbox is null || ledger.Receipts is null)
+            throw new HttpRequestException("State response has null ledger collections");
         if (ledger.SchemaVersion != 1) throw new HttpRequestException("Unsupported ledger schema");
         // Dapr's Redis ETag is an unquoted number; HttpHeaders.ETag rejects it as RFC entity-tag syntax.
         var etag = response.Headers.TryGetValues("ETag", out var versions) ? versions.Single().Trim('"') : throw new HttpRequestException("State ETag is missing");

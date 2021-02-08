@@ -24,5 +24,15 @@ public class AdapterContracts
         Assert.Empty((await Responding(document.ToJsonString()).Read(default)).Value.Orders);
     }
 
+
+    [Fact] public async Task InvalidLedgerShapeIsRejected()
+    {
+        foreach (var invalid in new[] {
+            "{}", "null", "[]",
+            "{\"orders\":null,\"requests\":{},\"outbox\":{},\"receipts\":[]}",
+            "{\"orders\":{},\"requests\":[],\"outbox\":{},\"receipts\":[]}" })
+            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(invalid).Read(default));
+    }
+
 // TESTS
 }
