@@ -34,5 +34,23 @@ public class AdapterContracts
             await Assert.ThrowsAsync<HttpRequestException>(() => Responding(invalid).Read(default));
     }
 
+
+    [Fact] public async Task InvalidLedgerReferencesAreRejected()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        var order = (await engine.Submit("alice", "integrity-key", new("SKU-1", 1))).Order;
+        var valid = (await store.Read(default)).Value;
+        async Task Reject(Action<JsonObject> mutate) {
+            var node = JsonSerializer.SerializeToNode(valid, WebJson)!.AsObject(); mutate(node);
+            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(node.ToJsonString()).Read(default));
+        }
+        await Reject(node => node["orders"]![order.Id]!["status"] = "impossible");
+        await Reject(node => node["orders"]![order.Id]!["id"] = Guid.NewGuid().ToString("N"));
+        await Reject(node => node["requests"]!.AsObject().First().Value!["orderId"] = Guid.NewGuid().ToString("N"));
+        await Reject(node => node["outbox"]![order.EventId]!["eventId"] = Guid.NewGuid().ToString("N"));
+        await Reject(node => node["receipts"]!.AsArray().Add(order.EventId));
+        Assert.Single((await Responding(JsonSerializer.Serialize(valid, WebJson)).Read(default)).Value.Orders);
+    }
+
 // TESTS
 }
