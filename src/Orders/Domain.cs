@@ -21,6 +21,7 @@ public interface ILedgerStore
 public interface IEventPublisher { Task Publish(OrderEvent message, CancellationToken cancellationToken); }
 public sealed class IdempotencyConflict : Exception;
 public sealed class LedgerBusy : Exception;
+public sealed class LedgerCapacity : Exception;
 public sealed class InvalidOrder(IReadOnlyDictionary<string, string[]>? errors = null) : Exception("Order validation failed")
 {
     public IReadOnlyDictionary<string, string[]> Errors { get; } = errors ?? new Dictionary<string, string[]>();
@@ -45,6 +46,7 @@ public sealed class OrdersEngine(ILedgerStore store)
                 if (previous.Fingerprint != fingerprint) throw new IdempotencyConflict();
                 return ((ledger.Orders[previous.OrderId], false), false);
             }
+            if (ledger.Orders.Count >= 10000) throw new LedgerCapacity();
             var order = new Order(Guid.NewGuid().ToString("N"), owner, input.Sku!, input.Quantity, "accepted", Guid.NewGuid().ToString("N"), TimeProvider.System.GetUtcNow());
             ledger.Orders.Add(order.Id, order);
             ledger.Requests.Add(requestKey, new(fingerprint, order.Id));

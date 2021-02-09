@@ -56,3 +56,5 @@ Use the same CPU/memory allocation, image versions, ledger size and request/conc
 Before considering a larger deployment, validate TLS and secret rotation, rate limiting, retention, durable dead-letter/quarantine, external-effect idempotency, backups, state migration, container vulnerabilities, sustained concurrency, and network/disk failure recovery. These are concrete extensions beyond the current synthetic exercise.
 
 New orders include trusted UTC `acceptedAt` and `fulfilledAt` timestamps. Existing stored orders without those fields retain null timestamps; replay never invents a historical acceptance time.
+
+The default admission limit is 10,000 orders. Existing identical requests continue to replay at that limit; new requests require capacity intervention. The check occurs inside the same CAS mutation as acceptance.

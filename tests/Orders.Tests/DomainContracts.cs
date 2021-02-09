@@ -235,5 +235,22 @@ public class DomainContracts
         Assert.True(completed.GetProperty("fulfilledAt").GetDateTimeOffset() >= created.GetDateTimeOffset());
     }
 
+
+    [Fact] public async Task CapacityPreservesExistingReplays()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        var existing = await engine.Submit("alice", "capacity-replay", new("SKU-1", 1));
+        var snapshot = await store.Read(default);
+        for (var i = 1; snapshot.Value.Orders.Count < 10000; i++) {
+            var id = i.ToString("x32"); snapshot.Value.Orders[id] = new(id, "alice", "SKU-1", 1, "accepted", Guid.NewGuid().ToString("N"));
+        }
+        Assert.True(await store.CompareExchange(snapshot.Value, snapshot.ETag, default));
+        var error = await Record.ExceptionAsync(() => engine.Submit("alice", "capacity-new", new("SKU-1", 1)));
+        Assert.Equal("LedgerCapacity", error?.GetType().Name);
+        var replay = await engine.Submit("alice", "capacity-replay", new("SKU-1", 1));
+        Assert.False(replay.Created); Assert.Equal(existing.Order.Id, replay.Order.Id);
+        Assert.Equal(10000, (await store.Read(default)).Value.Orders.Count);
+    }
+
 // TESTS
 }
