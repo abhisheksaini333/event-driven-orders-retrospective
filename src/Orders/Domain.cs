@@ -3,7 +3,7 @@ namespace Orders;
 public sealed record CreateOrder(string Sku, int Quantity);
 public sealed record Order(string Id, string Owner, string Sku, int Quantity, string Status, string EventId, DateTimeOffset? AcceptedAt = null, DateTimeOffset? FulfilledAt = null);
 public sealed record OrderEvent(string EventId, string OrderId, int Version = 1);
-public sealed record RequestRecord(string Fingerprint, string OrderId);
+public sealed record RequestRecord(string Fingerprint, string OrderId, int Version = 1);
 public sealed class Ledger
 {
     public int SchemaVersion { get; set; } = 1;
@@ -43,7 +43,7 @@ public sealed class OrdersEngine(ILedgerStore store)
         {
             if (ledger.Requests.TryGetValue(requestKey, out var previous))
             {
-                if (previous.Fingerprint != fingerprint) throw new IdempotencyConflict();
+                if (previous.Version != 1 || previous.Fingerprint != fingerprint) throw new IdempotencyConflict();
                 return ((ledger.Orders[previous.OrderId], false), false);
             }
             if (ledger.Orders.Count >= 10000) throw new LedgerCapacity();

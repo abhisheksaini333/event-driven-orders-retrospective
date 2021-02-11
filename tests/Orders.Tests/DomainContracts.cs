@@ -252,5 +252,18 @@ public class DomainContracts
         Assert.Equal(10000, (await store.Read(default)).Value.Orders.Count);
     }
 
+
+    [Fact] public async Task UnknownFingerprintVersionCannotReplay()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        await engine.Submit("alice", "fingerprint-version", new("SKU-1", 1));
+        var snapshot = await store.Read(default); var pair = snapshot.Value.Requests.Single();
+        var json = JsonSerializer.Serialize(new { pair.Value.Fingerprint, pair.Value.OrderId, Version = 99 });
+        snapshot.Value.Requests[pair.Key] = JsonSerializer.Deserialize<RequestRecord>(json)!;
+        await store.CompareExchange(snapshot.Value, snapshot.ETag, default);
+        await Assert.ThrowsAsync<IdempotencyConflict>(() => engine.Submit("alice", "fingerprint-version", new("SKU-1", 1)));
+        Assert.Single((await store.Read(default)).Value.Orders);
+    }
+
 // TESTS
 }
