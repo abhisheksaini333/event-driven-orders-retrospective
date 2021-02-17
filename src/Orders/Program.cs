@@ -45,6 +45,7 @@ app.Use(async (context, next) =>
     try { await next(context); }
     catch (InvalidOrder) { await Problem(context, 400, "Invalid order or Idempotency-Key"); }
     catch (IdempotencyConflict) { await Problem(context, 409, "Idempotency-Key already used for different content"); }
+    catch (LedgerCapacity) { await Problem(context, 503, "Order capacity reached; contact the operator"); }
     catch (LedgerBusy) { context.Response.Headers.RetryAfter = "1"; await Problem(context, 503, "State is busy; retry with the same Idempotency-Key"); }
     catch (HttpRequestException) { await Problem(context, 503, "Dependency unavailable; retry with the same Idempotency-Key"); }
     catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested) { await Problem(context, 503, "Dependency timed out; retry with the same Idempotency-Key"); }
