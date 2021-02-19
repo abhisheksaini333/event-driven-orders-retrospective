@@ -52,5 +52,12 @@ public class AdapterContracts
         Assert.Single((await Responding(JsonSerializer.Serialize(valid, WebJson)).Read(default)).Value.Orders);
     }
 
+
+    [Fact] public async Task MalformedJsonIsDependencyFailure()
+    {
+        foreach (var payload in new[] { "{not-json", "", "123", "true", "\"a string\"" })
+            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(payload).Read(default));
+    }
+
 // TESTS
 }
