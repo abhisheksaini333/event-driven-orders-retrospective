@@ -59,5 +59,16 @@ public class AdapterContracts
             await Assert.ThrowsAsync<HttpRequestException>(() => Responding(payload).Read(default));
     }
 
+
+    [Fact] public async Task OversizedStateIsRejectedWithoutMutation()
+    {
+        var padding = new string(' ', 16 * 1024 * 1024);
+        await Assert.ThrowsAsync<HttpRequestException>(() => Responding(JsonSerializer.Serialize(new Ledger(), WebJson) + padding).Read(default));
+        var calls = 0; var store = new DaprLedgerStore(new StubClients(new StubHandler(_ => { calls++; return new(HttpStatusCode.NoContent); })));
+        var ledger = new Ledger(); ledger.Orders["large"] = new("large", "alice", padding, 1, "accepted", "event");
+        await Assert.ThrowsAsync<HttpRequestException>(() => store.CompareExchange(ledger, "1", default));
+        Assert.Equal(0, calls);
+    }
+
 // TESTS
 }
