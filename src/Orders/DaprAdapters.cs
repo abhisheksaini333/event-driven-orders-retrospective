@@ -13,6 +13,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients) : ILedgerStore
         using var response = await clients.CreateClient("dapr").GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
         if (response.StatusCode == HttpStatusCode.NoContent) return new(new Ledger(), "0");
+        if (response.StatusCode != HttpStatusCode.OK) throw new HttpRequestException("Unexpected state read response status", null, response.StatusCode);
         Ledger ledger;
         try
         {

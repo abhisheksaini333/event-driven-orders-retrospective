@@ -70,5 +70,12 @@ public class AdapterContracts
         Assert.Equal(0, calls);
     }
 
+
+    [Fact] public async Task UnexpectedSuccessfulReadStatusFailsClosed()
+    {
+        foreach (var status in new[] { HttpStatusCode.Created, HttpStatusCode.Accepted, HttpStatusCode.PartialContent })
+            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(JsonSerializer.Serialize(new Ledger(), WebJson), status).Read(default));
+    }
+
 // TESTS
 }
