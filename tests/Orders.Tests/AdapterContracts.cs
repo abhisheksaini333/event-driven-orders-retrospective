@@ -77,5 +77,17 @@ public class AdapterContracts
             await Assert.ThrowsAsync<HttpRequestException>(() => Responding(JsonSerializer.Serialize(new Ledger(), WebJson), status).Read(default));
     }
 
+
+    [Fact] public async Task MalformedEtagsAreDependencyFailures()
+    {
+        var payload = JsonSerializer.Serialize(new Ledger(), WebJson);
+        foreach (var etag in new[] { "", " ", "0", "-1", "abc", "1,2", "\"1", "\"\"1\"\"", "9223372036854775808" })
+            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(payload, etag: etag).Read(default));
+        Assert.Equal("42", (await Responding(payload, etag: "\"42\"").Read(default)).ETag);
+        var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new Ledger()) };
+        response.Headers.TryAddWithoutValidation("ETag", new[] { "1", "2" });
+        await Assert.ThrowsAsync<HttpRequestException>(() => new DaprLedgerStore(new StubClients(new StubHandler(_ => response))).Read(default));
+    }
+
 // TESTS
 }
