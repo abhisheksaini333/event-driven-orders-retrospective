@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Configuration;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -87,6 +88,26 @@ public class AdapterContracts
         var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new Ledger()) };
         response.Headers.TryAddWithoutValidation("ETag", new[] { "1", "2" });
         await Assert.ThrowsAsync<HttpRequestException>(() => new DaprLedgerStore(new StubClients(new StubHandler(_ => response))).Read(default));
+    }
+
+
+    [Fact] public async Task ConfiguredDaprNamesControlWirePaths()
+    {
+        var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+            ["Dapr:StateStore"] = "alternate-state", ["Dapr:StateKey"] = "alternate-ledger", ["Dapr:PubSub"] = "alternate-bus", ["Dapr:Topic"] = "orders.v2"
+        }).Build();
+        var paths = new List<string>();
+        var clients = new StubClients(new StubHandler(request => { paths.Add(request.RequestUri!.AbsolutePath); return new(HttpStatusCode.NoContent); }));
+        var constructor = typeof(DaprLedgerStore).GetConstructors().SingleOrDefault(c => c.GetParameters().Length == 2);
+        Assert.NotNull(constructor);
+        var store = (DaprLedgerStore)constructor.Invoke(new object[] { clients, configuration });
+        await store.Read(default);
+        var publisherConstructor = typeof(DaprPublisher).GetConstructors().Single(c => c.GetParameters().Length == 2);
+        await ((DaprPublisher)publisherConstructor.Invoke(new object[] { clients, configuration })).Publish(new("event", "order"), default);
+        Assert.Equal(new[] { "/v1.0/state/alternate-state/alternate-ledger", "/v1.0/publish/alternate-bus/orders.v2" }, paths);
+        configuration["Dapr:StateStore"] = "unsafe/path";
+        var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => constructor.Invoke(new object[] { clients, configuration }));
+        Assert.IsType<ArgumentException>(error.InnerException);
     }
 
 // TESTS

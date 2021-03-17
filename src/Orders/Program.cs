@@ -9,6 +9,7 @@ using Orders;
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 4096);
 var worker = builder.Configuration["Role"] == "worker";
+_ = DaprSettings.Load(builder.Configuration);
 builder.Services.AddSingleton<ILedgerStore, DaprLedgerStore>();
 builder.Services.AddSingleton<IEventPublisher, DaprPublisher>();
 builder.Services.AddSingleton<OrdersEngine>();

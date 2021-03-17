@@ -3,11 +3,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace Orders;
-public sealed class DaprLedgerStore(IHttpClientFactory clients) : ILedgerStore
+public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? configuration = null) : ILedgerStore
 {
     private const int MaximumStateBytes = 16 * 1024 * 1024;
-    private const string StatePath = "/v1.0/state/orders-state";
-    private const string Key = "orders-ledger-v1";
+    private readonly DaprSettings settings = DaprSettings.Load(configuration);
+    private string StatePath => "/v1.0/state/" + settings.StateStore;
+    private string Key => settings.StateKey;
     public async Task<Snapshot> Read(CancellationToken ct)
     {
         using var response = await clients.CreateClient("dapr").GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
@@ -63,11 +64,12 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients) : ILedgerStore
         response.EnsureSuccessStatusCode(); return true;
     }
 }
-public sealed class DaprPublisher(IHttpClientFactory clients) : IEventPublisher
+public sealed class DaprPublisher(IHttpClientFactory clients, IConfiguration? configuration = null) : IEventPublisher
 {
+    private readonly DaprSettings settings = DaprSettings.Load(configuration);
     public async Task Publish(OrderEvent message, CancellationToken ct)
     {
-        using var response = await clients.CreateClient("dapr").PostAsJsonAsync("/v1.0/publish/orders-pubsub/orders.accepted", message, ct);
+        using var response = await clients.CreateClient("dapr").PostAsJsonAsync("/v1.0/publish/" + settings.PubSub + "/" + settings.Topic, message, ct);
         response.EnsureSuccessStatusCode();
     }
 }
