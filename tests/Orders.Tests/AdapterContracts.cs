@@ -110,5 +110,21 @@ public class AdapterContracts
         Assert.IsType<ArgumentException>(error.InnerException);
     }
 
+
+    [Fact] public async Task TransientStateReadsRecoverWithinBudget()
+    {
+        var calls = 0;
+        var store = new DaprLedgerStore(new StubClients(new StubHandler(_ => {
+            calls++;
+            if (calls < 3) return new(calls == 1 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.BadGateway);
+            var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new Ledger()) };
+            response.Headers.TryAddWithoutValidation("ETag", "1"); return response;
+        })));
+        Assert.Empty((await store.Read(default)).Value.Orders); Assert.Equal(3, calls);
+        calls = 0;
+        var unavailable = new DaprLedgerStore(new StubClients(new StubHandler(_ => { calls++; return new(HttpStatusCode.ServiceUnavailable); })));
+        await Assert.ThrowsAsync<HttpRequestException>(() => unavailable.Read(default)); Assert.Equal(3, calls);
+    }
+
 // TESTS
 }

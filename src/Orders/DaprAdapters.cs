@@ -11,7 +11,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     private string Key => settings.StateKey;
     public async Task<Snapshot> Read(CancellationToken ct)
     {
-        using var response = await clients.CreateClient("dapr").GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await ReadResponse(ct);
         response.EnsureSuccessStatusCode();
         if (response.StatusCode == HttpStatusCode.NoContent) return new(new Ledger(), "0");
         if (response.StatusCode != HttpStatusCode.OK) throw new HttpRequestException("Unexpected state read response status", null, response.StatusCode);
@@ -36,6 +36,16 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
         if ((raw != etag && raw != "\"" + etag + "\"") || !long.TryParse(etag, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var version) || version <= 0)
             throw new HttpRequestException("State ETag is invalid");
         return new(ledger, etag);
+    }
+    private async Task<HttpResponseMessage> ReadResponse(CancellationToken ct)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var response = await clients.CreateClient("dapr").GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
+            if (attempt >= 2 || response.StatusCode is not (HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)) return response;
+            response.Dispose();
+            await Task.Delay(TimeSpan.FromMilliseconds(20 * (1 << attempt)), ct);
+        }
     }
     private static async Task<byte[]> ReadBounded(HttpContent content, CancellationToken ct)
     {
