@@ -126,5 +126,20 @@ public class AdapterContracts
         await Assert.ThrowsAsync<HttpRequestException>(() => unavailable.Read(default)); Assert.Equal(3, calls);
     }
 
+
+    [Fact] public async Task RetryAfterGuidesSafeReadBackoff()
+    {
+        var calls = 0; var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        var store = new DaprLedgerStore(new StubClients(new StubHandler(_ => {
+            if (++calls == 1) {
+                var limited = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                limited.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(1)); return limited;
+            }
+            return new(HttpStatusCode.NoContent);
+        })));
+        await store.Read(default);
+        Assert.True(elapsed.Elapsed >= TimeSpan.FromMilliseconds(850)); Assert.Equal(2, calls);
+    }
+
 // TESTS
 }
