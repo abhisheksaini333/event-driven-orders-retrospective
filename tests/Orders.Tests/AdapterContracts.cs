@@ -141,5 +141,14 @@ public class AdapterContracts
         Assert.True(elapsed.Elapsed >= TimeSpan.FromMilliseconds(850)); Assert.Equal(2, calls);
     }
 
+
+    [Fact] public async Task AmbiguousMutationsAreNotRetried()
+    {
+        var calls = 0;
+        var store = new DaprLedgerStore(new StubClients(new StubHandler(_ => { calls++; return new(HttpStatusCode.ServiceUnavailable); })));
+        await Assert.ThrowsAsync<HttpRequestException>(() => store.CompareExchange(new Ledger(), "7", default));
+        Assert.Equal(1, calls);
+    }
+
 // TESTS
 }
