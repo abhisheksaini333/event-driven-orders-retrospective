@@ -150,5 +150,23 @@ public class AdapterContracts
         Assert.Equal(1, calls);
     }
 
+
+    [Fact] public async Task ConditionalStateWireContract()
+    {
+        var requests = new List<(string Method, string Uri, string Body)>();
+        var store = new DaprLedgerStore(new StubClients(new StubHandler(request => {
+            requests.Add((request.Method.Method, request.RequestUri!.PathAndQuery, request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? ""));
+            return new(HttpStatusCode.NoContent);
+        })));
+        await store.Read(default); Assert.True(await store.CompareExchange(new Ledger(), "42", default));
+        Assert.Equal(("GET", "/v1.0/state/orders-state/orders-ledger-v1?consistency=strong", ""), requests[0]);
+        Assert.Equal("POST", requests[1].Method); Assert.Equal("/v1.0/state/orders-state", requests[1].Uri);
+        var write = JsonDocument.Parse(requests[1].Body).RootElement[0];
+        Assert.Equal("42", write.GetProperty("etag").GetString()); Assert.Equal("orders-ledger-v1", write.GetProperty("key").GetString());
+        Assert.Equal("first-write", write.GetProperty("options").GetProperty("concurrency").GetString());
+        Assert.Equal("strong", write.GetProperty("options").GetProperty("consistency").GetString());
+        Assert.Equal(JsonValueKind.Object, write.GetProperty("value").ValueKind);
+    }
+
 // TESTS
 }
