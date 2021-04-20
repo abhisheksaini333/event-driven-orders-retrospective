@@ -168,5 +168,20 @@ public class AdapterContracts
         Assert.Equal(JsonValueKind.Object, write.GetProperty("value").ValueKind);
     }
 
+
+    [Fact] public async Task PublisherWireAndAcknowledgmentContract()
+    {
+        var message = new OrderEvent(Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"));
+        var calls = 0;
+        var publisher = new DaprPublisher(new StubClients(new StubHandler(request => {
+            calls++; Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal("/v1.0/publish/orders-pubsub/orders.accepted", request.RequestUri!.AbsolutePath);
+            Assert.Equal("application/json", request.Content!.Headers.ContentType!.MediaType);
+            var sent = request.Content.ReadFromJsonAsync<OrderEvent>().GetAwaiter().GetResult(); Assert.Equal(message, sent);
+            return new(HttpStatusCode.ServiceUnavailable);
+        })));
+        await Assert.ThrowsAsync<HttpRequestException>(() => publisher.Publish(message, default)); Assert.Equal(1, calls);
+    }
+
 // TESTS
 }
