@@ -11,6 +11,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     private string Key => settings.StateKey;
     public async Task<Snapshot> Read(CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         using var response = await ReadResponse(ct);
         response.EnsureSuccessStatusCode();
         if (response.StatusCode == HttpStatusCode.NoContent) return new(new Ledger(), "0");
@@ -65,6 +66,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     }
     public async Task<bool> CompareExchange(Ledger ledger, string etag, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var payload = JsonSerializer.SerializeToUtf8Bytes(new[] {
             new { key = Key, value = ledger, etag, options = new { concurrency = "first-write", consistency = "strong" } }
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -81,6 +83,7 @@ public sealed class DaprPublisher(IHttpClientFactory clients, IConfiguration? co
     private readonly DaprSettings settings = DaprSettings.Load(configuration);
     public async Task Publish(OrderEvent message, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         using var response = await clients.CreateClient("dapr").PostAsJsonAsync("/v1.0/publish/" + settings.PubSub + "/" + settings.Topic, message, ct);
         response.EnsureSuccessStatusCode();
     }

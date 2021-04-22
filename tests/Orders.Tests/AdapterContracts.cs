@@ -183,5 +183,16 @@ public class AdapterContracts
         await Assert.ThrowsAsync<HttpRequestException>(() => publisher.Publish(message, default)); Assert.Equal(1, calls);
     }
 
+
+    [Fact] public async Task CanceledAdapterCallsDoNotDispatch()
+    {
+        using var canceled = new CancellationTokenSource(); canceled.Cancel(); var calls = 0;
+        var clients = new StubClients(new StubHandler(_ => { calls++; return new(HttpStatusCode.NoContent); }));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new DaprLedgerStore(clients).Read(canceled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new DaprLedgerStore(clients).CompareExchange(new Ledger(), "1", canceled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new DaprPublisher(clients).Publish(new("event", "order"), canceled.Token));
+        Assert.Equal(0, calls);
+    }
+
 // TESTS
 }
