@@ -31,6 +31,6 @@ public class DaprAdapterTests
         var conflict = new DaprLedgerStore(new StubClients(new StubHandler(_ => new(HttpStatusCode.Conflict))));
         Assert.False(await conflict.CompareExchange(new Ledger(), "2", default));
         var failure = new DaprLedgerStore(new StubClients(new StubHandler(_ => new(HttpStatusCode.InternalServerError))));
-        await Assert.ThrowsAsync<HttpRequestException>(() => failure.CompareExchange(new Ledger(), "2", default));
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => failure.CompareExchange(new Ledger(), "2", default));
     }
 }

@@ -20,7 +20,7 @@ public class AdapterContracts
     {
         var document = JsonSerializer.SerializeToNode(new Ledger(), WebJson)!.AsObject();
         document["schemaVersion"] = 99;
-        await Assert.ThrowsAsync<HttpRequestException>(() => Responding(document.ToJsonString()).Read(default));
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(document.ToJsonString()).Read(default));
         document.Remove("schemaVersion");
         Assert.Empty((await Responding(document.ToJsonString()).Read(default)).Value.Orders);
     }
@@ -32,7 +32,7 @@ public class AdapterContracts
             "{}", "null", "[]",
             "{\"orders\":null,\"requests\":{},\"outbox\":{},\"receipts\":[]}",
             "{\"orders\":{},\"requests\":[],\"outbox\":{},\"receipts\":[]}" })
-            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(invalid).Read(default));
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(invalid).Read(default));
     }
 
 
@@ -43,7 +43,7 @@ public class AdapterContracts
         var valid = (await store.Read(default)).Value;
         async Task Reject(Action<JsonObject> mutate) {
             var node = JsonSerializer.SerializeToNode(valid, WebJson)!.AsObject(); mutate(node);
-            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(node.ToJsonString()).Read(default));
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(node.ToJsonString()).Read(default));
         }
         await Reject(node => node["orders"]![order.Id]!["status"] = "impossible");
         await Reject(node => node["orders"]![order.Id]!["id"] = Guid.NewGuid().ToString("N"));
@@ -57,17 +57,17 @@ public class AdapterContracts
     [Fact] public async Task MalformedJsonIsDependencyFailure()
     {
         foreach (var payload in new[] { "{not-json", "", "123", "true", "\"a string\"" })
-            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(payload).Read(default));
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(payload).Read(default));
     }
 
 
     [Fact] public async Task OversizedStateIsRejectedWithoutMutation()
     {
         var padding = new string(' ', 16 * 1024 * 1024);
-        await Assert.ThrowsAsync<HttpRequestException>(() => Responding(JsonSerializer.Serialize(new Ledger(), WebJson) + padding).Read(default));
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(JsonSerializer.Serialize(new Ledger(), WebJson) + padding).Read(default));
         var calls = 0; var store = new DaprLedgerStore(new StubClients(new StubHandler(_ => { calls++; return new(HttpStatusCode.NoContent); })));
         var ledger = new Ledger(); ledger.Orders["large"] = new("large", "alice", padding, 1, "accepted", "event");
-        await Assert.ThrowsAsync<HttpRequestException>(() => store.CompareExchange(ledger, "1", default));
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => store.CompareExchange(ledger, "1", default));
         Assert.Equal(0, calls);
     }
 
@@ -75,7 +75,7 @@ public class AdapterContracts
     [Fact] public async Task UnexpectedSuccessfulReadStatusFailsClosed()
     {
         foreach (var status in new[] { HttpStatusCode.Created, HttpStatusCode.Accepted, HttpStatusCode.PartialContent })
-            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(JsonSerializer.Serialize(new Ledger(), WebJson), status).Read(default));
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(JsonSerializer.Serialize(new Ledger(), WebJson), status).Read(default));
     }
 
 
@@ -83,11 +83,11 @@ public class AdapterContracts
     {
         var payload = JsonSerializer.Serialize(new Ledger(), WebJson);
         foreach (var etag in new[] { "", " ", "0", "-1", "abc", "1,2", "\"1", "\"\"1\"\"", "9223372036854775808" })
-            await Assert.ThrowsAsync<HttpRequestException>(() => Responding(payload, etag: etag).Read(default));
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(payload, etag: etag).Read(default));
         Assert.Equal("42", (await Responding(payload, etag: "\"42\"").Read(default)).ETag);
         var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new Ledger()) };
         response.Headers.TryAddWithoutValidation("ETag", new[] { "1", "2" });
-        await Assert.ThrowsAsync<HttpRequestException>(() => new DaprLedgerStore(new StubClients(new StubHandler(_ => response))).Read(default));
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => new DaprLedgerStore(new StubClients(new StubHandler(_ => response))).Read(default));
     }
 
 
@@ -123,7 +123,7 @@ public class AdapterContracts
         Assert.Empty((await store.Read(default)).Value.Orders); Assert.Equal(3, calls);
         calls = 0;
         var unavailable = new DaprLedgerStore(new StubClients(new StubHandler(_ => { calls++; return new(HttpStatusCode.ServiceUnavailable); })));
-        await Assert.ThrowsAsync<HttpRequestException>(() => unavailable.Read(default)); Assert.Equal(3, calls);
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => unavailable.Read(default)); Assert.Equal(3, calls);
     }
 
 
@@ -146,7 +146,7 @@ public class AdapterContracts
     {
         var calls = 0;
         var store = new DaprLedgerStore(new StubClients(new StubHandler(_ => { calls++; return new(HttpStatusCode.ServiceUnavailable); })));
-        await Assert.ThrowsAsync<HttpRequestException>(() => store.CompareExchange(new Ledger(), "7", default));
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => store.CompareExchange(new Ledger(), "7", default));
         Assert.Equal(1, calls);
     }
 
@@ -180,7 +180,7 @@ public class AdapterContracts
             var sent = request.Content.ReadFromJsonAsync<OrderEvent>().GetAwaiter().GetResult(); Assert.Equal(message, sent);
             return new(HttpStatusCode.ServiceUnavailable);
         })));
-        await Assert.ThrowsAsync<HttpRequestException>(() => publisher.Publish(message, default)); Assert.Equal(1, calls);
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => publisher.Publish(message, default)); Assert.Equal(1, calls);
     }
 
 
@@ -192,6 +192,18 @@ public class AdapterContracts
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new DaprLedgerStore(clients).CompareExchange(new Ledger(), "1", canceled.Token));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new DaprPublisher(clients).Publish(new("event", "order"), canceled.Token));
         Assert.Equal(0, calls);
+    }
+
+
+    [Fact] public async Task DependencyFailuresHaveSafeOperationMetadata()
+    {
+        var publisher = new DaprPublisher(new StubClients(new StubHandler(_ => new(HttpStatusCode.Forbidden) { Content = new StringContent("private-response-detail") })));
+        var error = await Assert.ThrowsAnyAsync<HttpRequestException>(() => publisher.Publish(new("event", "order"), default));
+        Assert.Equal("DaprOperationException", error.GetType().Name);
+        Assert.Equal(HttpStatusCode.Forbidden, error.StatusCode);
+        Assert.Equal("publish", error.GetType().GetProperty("Operation")!.GetValue(error));
+        Assert.Equal(false, error.GetType().GetProperty("Retryable")!.GetValue(error));
+        Assert.DoesNotContain("private-response-detail", error.ToString());
     }
 
 // TESTS

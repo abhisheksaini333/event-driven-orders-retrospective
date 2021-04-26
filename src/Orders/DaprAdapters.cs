@@ -13,7 +13,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     {
         ct.ThrowIfCancellationRequested();
         using var response = await ReadResponse(ct);
-        response.EnsureSuccessStatusCode();
+        DaprOperationException.EnsureSuccess(response, "read");
         if (response.StatusCode == HttpStatusCode.NoContent) return new(new Ledger(), "0");
         if (response.StatusCode != HttpStatusCode.OK) throw new HttpRequestException("Unexpected state read response status", null, response.StatusCode);
         Ledger ledger;
@@ -75,7 +75,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
         content.Headers.ContentType = new("application/json");
         using var response = await clients.CreateClient("dapr").PostAsync(StatePath, content, ct);
         if (response.StatusCode == HttpStatusCode.Conflict) return false;
-        response.EnsureSuccessStatusCode(); return true;
+        DaprOperationException.EnsureSuccess(response, "write"); return true;
     }
 }
 public sealed class DaprPublisher(IHttpClientFactory clients, IConfiguration? configuration = null) : IEventPublisher
@@ -85,7 +85,7 @@ public sealed class DaprPublisher(IHttpClientFactory clients, IConfiguration? co
     {
         ct.ThrowIfCancellationRequested();
         using var response = await clients.CreateClient("dapr").PostAsJsonAsync("/v1.0/publish/" + settings.PubSub + "/" + settings.Topic, message, ct);
-        response.EnsureSuccessStatusCode();
+        DaprOperationException.EnsureSuccess(response, "publish");
     }
 }
 public sealed class OutboxDispatcher(OrdersEngine engine, IEventPublisher publisher, ILogger<OutboxDispatcher> logger) : BackgroundService
