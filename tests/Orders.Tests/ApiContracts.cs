@@ -36,5 +36,13 @@ public class ApiContracts
         Assert.DoesNotContain("StackTrace", body); Assert.DoesNotContain("System.", body);
     }
 
+
+    [Fact] public void UnknownRoleFailsStartup()
+    {
+        using var factory = new OrdersFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Role", "wroker"));
+        Assert.NotNull(Record.Exception(() => { using var client = configured.CreateClient(); }));
+    }
+
 // TESTS
 }

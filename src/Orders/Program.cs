@@ -8,7 +8,9 @@ using Orders;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 4096);
-var worker = builder.Configuration["Role"] == "worker";
+var role = builder.Configuration["Role"] ?? "api";
+if (role is not ("api" or "worker")) throw new ArgumentException("Role must be api or worker.");
+var worker = role == "worker";
 _ = DaprSettings.Load(builder.Configuration);
 builder.Services.AddSingleton<ILedgerStore, DaprLedgerStore>();
 builder.Services.AddSingleton<IEventPublisher, DaprPublisher>();
