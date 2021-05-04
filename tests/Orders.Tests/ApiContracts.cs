@@ -44,5 +44,16 @@ public class ApiContracts
         Assert.NotNull(Record.Exception(() => { using var client = configured.CreateClient(); }));
     }
 
+
+    [Fact] public void InvalidDispatcherBooleanFailsStartup()
+    {
+        using var factory = new OrdersFactory();
+        using var invalid = factory.WithWebHostBuilder(builder => builder.UseSetting("DispatcherEnabled", "sometimes"));
+        Assert.NotNull(Record.Exception(() => { using var client = invalid.CreateClient(); }));
+        using var disabled = factory.WithWebHostBuilder(builder => builder.UseSetting("DispatcherEnabled", "FALSE"));
+        using var healthy = disabled.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, healthy.GetAsync("/health/live").GetAwaiter().GetResult().StatusCode);
+    }
+
 // TESTS
 }

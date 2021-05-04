@@ -11,6 +11,8 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 var role = builder.Configuration["Role"] ?? "api";
 if (role is not ("api" or "worker")) throw new ArgumentException("Role must be api or worker.");
 var worker = role == "worker";
+if (!bool.TryParse(builder.Configuration["DispatcherEnabled"] ?? "true", out var dispatcherEnabled))
+    throw new ArgumentException("DispatcherEnabled must be true or false.");
 _ = DaprSettings.Load(builder.Configuration);
 builder.Services.AddSingleton<ILedgerStore, DaprLedgerStore>();
 builder.Services.AddSingleton<IEventPublisher, DaprPublisher>();
@@ -39,7 +41,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("write", policy => policy.RequireAuthenticatedUser().RequireClaim("sub").RequireRole("orders_writer"));
     options.AddPolicy("read", policy => policy.RequireAuthenticatedUser().RequireClaim("sub").RequireRole("orders_reader", "orders_writer"));
 });
-if (!worker && builder.Configuration["DispatcherEnabled"] != "false") builder.Services.AddHostedService<OutboxDispatcher>();
+if (!worker && dispatcherEnabled) builder.Services.AddHostedService<OutboxDispatcher>();
 var app = builder.Build();
 app.Use(async (context, next) =>
 {
