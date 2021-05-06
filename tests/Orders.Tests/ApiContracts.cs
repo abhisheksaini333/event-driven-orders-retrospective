@@ -55,5 +55,15 @@ public class ApiContracts
         Assert.Equal(HttpStatusCode.OK, healthy.GetAsync("/health/live").GetAwaiter().GetResult().StatusCode);
     }
 
+
+    [Fact] public void InvalidDaprEndpointFailsStartup()
+    {
+        foreach (var endpoint in new[] { "file:///tmp/state", "http://user:password@localhost", "http://localhost/?token=bad", "http://localhost/#fragment", "http://localhost/prefix" }) {
+            using var factory = new OrdersFactory();
+            using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Dapr:Endpoint", endpoint));
+            Assert.NotNull(Record.Exception(() => { using var client = configured.CreateClient(); }));
+        }
+    }
+
 // TESTS
 }

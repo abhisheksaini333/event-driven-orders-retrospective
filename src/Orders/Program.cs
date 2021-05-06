@@ -17,9 +17,13 @@ _ = DaprSettings.Load(builder.Configuration);
 builder.Services.AddSingleton<ILedgerStore, DaprLedgerStore>();
 builder.Services.AddSingleton<IEventPublisher, DaprPublisher>();
 builder.Services.AddSingleton<OrdersEngine>();
+var endpointText = builder.Configuration["Dapr:Endpoint"] ?? "http://127.0.0.1:3500";
+if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var daprEndpoint) || daprEndpoint.Scheme is not ("http" or "https") || string.IsNullOrEmpty(daprEndpoint.Host) ||
+    daprEndpoint.UserInfo.Length != 0 || daprEndpoint.Query.Length != 0 || daprEndpoint.Fragment.Length != 0 || daprEndpoint.AbsolutePath != "/")
+    throw new ArgumentException("Dapr Endpoint must be an HTTP(S) origin without credentials, query, fragment or path.");
 builder.Services.AddHttpClient("dapr", client =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["Dapr:Endpoint"] ?? "http://127.0.0.1:3500");
+    client.BaseAddress = daprEndpoint;
     client.Timeout = TimeSpan.FromSeconds(5);
     var token = builder.Configuration["DAPR_API_TOKEN"];
     if (!string.IsNullOrEmpty(token)) client.DefaultRequestHeaders.Add("dapr-api-token", token);
