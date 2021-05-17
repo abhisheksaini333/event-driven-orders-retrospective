@@ -28,10 +28,19 @@ builder.Services.AddHttpClient("dapr", client =>
     var token = builder.Configuration["DAPR_API_TOKEN"];
     if (!string.IsNullOrEmpty(token)) client.DefaultRequestHeaders.Add("dapr-api-token", token);
 });
+var authority = builder.Configuration["Auth:Authority"] ?? "http://localhost:4322/realms/orders";
+var metadataAddress = builder.Configuration["Auth:MetadataAddress"] ?? authority + "/.well-known/openid-configuration";
+if (!worker)
+{
+    foreach (var address in new[] { authority, metadataAddress })
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
+            (!builder.Environment.IsDevelopment() && uri.Scheme != "https"))
+            throw new ArgumentException("OIDC authority and metadata must be valid HTTPS URLs outside Development.");
+}
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
-    options.Authority = builder.Configuration["Auth:Authority"] ?? "http://localhost:4322/realms/orders";
-    options.MetadataAddress = builder.Configuration["Auth:MetadataAddress"] ?? options.Authority + "/.well-known/openid-configuration";
+    options.Authority = authority;
+    options.MetadataAddress = metadataAddress;
     options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     options.MapInboundClaims = false;
     options.TokenValidationParameters = new TokenValidationParameters

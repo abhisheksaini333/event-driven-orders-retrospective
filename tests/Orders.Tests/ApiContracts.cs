@@ -65,5 +65,15 @@ public class ApiContracts
         }
     }
 
+
+    [Fact] public void InsecureProductionIssuerFailsStartup()
+    {
+        using var factory = new OrdersFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production").UseSetting("Auth:Authority", "http://issuer.test").UseSetting("DAPR_API_TOKEN", "test-sidecar-token"));
+        Assert.NotNull(Record.Exception(() => { using var client = configured.CreateClient(); }));
+        using var malformed = factory.WithWebHostBuilder(builder => builder.UseSetting("Auth:MetadataAddress", "file:///tmp/metadata"));
+        Assert.NotNull(Record.Exception(() => { using var client = malformed.CreateClient(); }));
+    }
+
 // TESTS
 }
