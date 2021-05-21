@@ -75,5 +75,15 @@ public class ApiContracts
         Assert.NotNull(Record.Exception(() => { using var client = malformed.CreateClient(); }));
     }
 
+
+    [Fact] public void BlankWorkerCallbackSecretsFailClosed()
+    {
+        foreach (var secret in new[] { "", "   " }) {
+            using var factory = new OrdersFactory();
+            using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Role", "worker").UseSetting("APP_API_TOKEN", secret));
+            Assert.NotNull(Record.Exception(() => { using var client = configured.CreateClient(); }));
+        }
+    }
+
 // TESTS
 }

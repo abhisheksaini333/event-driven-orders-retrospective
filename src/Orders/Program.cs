@@ -73,7 +73,8 @@ app.MapGet("/health/live", () => Results.Ok(new { status = "live", role = worker
 app.MapGet("/health/ready", async (ILedgerStore store, CancellationToken ct) => { await store.Read(ct); return Results.Ok(new { status = "ready" }); });
 if (worker)
 {
-    var callbackToken = builder.Configuration["APP_API_TOKEN"] ?? throw new InvalidOperationException("APP_API_TOKEN is required for worker callbacks");
+    var callbackToken = builder.Configuration["APP_API_TOKEN"];
+    if (string.IsNullOrWhiteSpace(callbackToken)) throw new InvalidOperationException("APP_API_TOKEN must be non-empty for worker callbacks");
     app.Use(async (context, next) =>
     {
         if (context.Request.Path.StartsWithSegments("/dapr") || context.Request.Path.StartsWithSegments("/events"))
