@@ -85,5 +85,13 @@ public class ApiContracts
         }
     }
 
+
+    [Fact] public void ProductionRequiresSidecarAuthentication()
+    {
+        using var factory = new OrdersFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production").UseSetting("Auth:Authority", "https://issuer.test").UseSetting("DAPR_API_TOKEN", ""));
+        Assert.NotNull(Record.Exception(() => { using var client = configured.CreateClient(); }));
+    }
+
 // TESTS
 }

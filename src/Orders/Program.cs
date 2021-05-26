@@ -21,6 +21,8 @@ var endpointText = builder.Configuration["Dapr:Endpoint"] ?? "http://127.0.0.1:3
 if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var daprEndpoint) || daprEndpoint.Scheme is not ("http" or "https") || string.IsNullOrEmpty(daprEndpoint.Host) ||
     daprEndpoint.UserInfo.Length != 0 || daprEndpoint.Query.Length != 0 || daprEndpoint.Fragment.Length != 0 || daprEndpoint.AbsolutePath != "/")
     throw new ArgumentException("Dapr Endpoint must be an HTTP(S) origin without credentials, query, fragment or path.");
+if (!builder.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(builder.Configuration["DAPR_API_TOKEN"]))
+    throw new ArgumentException("DAPR_API_TOKEN is required outside Development.");
 builder.Services.AddHttpClient("dapr", client =>
 {
     client.BaseAddress = daprEndpoint;
