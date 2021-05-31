@@ -93,5 +93,24 @@ public class ApiContracts
         Assert.NotNull(Record.Exception(() => { using var client = configured.CreateClient(); }));
     }
 
+
+    [Fact] public async Task WorkerTokenBoundaryContract()
+    {
+        const string secret = "test-worker-callback-token";
+        using var factory = new OrdersFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Role", "worker").UseSetting("APP_API_TOKEN", secret));
+        using var client = configured.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/dapr/subscribe")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/events/orders", new { data = new { } })).StatusCode);
+        using var duplicated = new HttpRequestMessage(HttpMethod.Get, "/dapr/subscribe");
+        duplicated.Headers.Add("dapr-api-token", new[] { secret, secret });
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(duplicated)).StatusCode);
+        client.DefaultRequestHeaders.Add("dapr-api-token", secret);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/dapr/subscribe")).StatusCode);
+        var dropped = await client.PostAsJsonAsync("/events/orders", new { data = new { } });
+        Assert.Equal("DROP", (await dropped.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/orders/anything")).StatusCode);
+    }
+
 // TESTS
 }
