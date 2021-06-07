@@ -45,6 +45,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     options.MetadataAddress = metadataAddress;
     options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     options.MapInboundClaims = false;
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            var subjects = context.Principal?.FindAll("sub").Select(claim => claim.Value).ToArray() ?? [];
+            if (subjects.Length != 1 || string.IsNullOrWhiteSpace(subjects[0]) || subjects[0].Length > 256 || subjects[0].Any(char.IsControl))
+                context.Fail("A single valid subject is required.");
+            return Task.CompletedTask;
+        }
+    };
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true, ValidIssuer = options.Authority, ValidateAudience = true, ValidAudience = "orders-api",

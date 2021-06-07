@@ -1,4 +1,7 @@
 using System.Net;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -110,6 +113,27 @@ public class ApiContracts
         var dropped = await client.PostAsJsonAsync("/events/orders", new { data = new { } });
         Assert.Equal("DROP", (await dropped.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/orders/anything")).StatusCode);
+    }
+
+    private static string Sign(IEnumerable<Claim> claims, string issuer = "https://issuer.test", DateTime? notBefore = null, bool unsigned = false) =>
+        new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(issuer, "orders-api", claims,
+            notBefore ?? DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(15),
+            unsigned ? null : new SigningCredentials(OrdersFactory.Key, SecurityAlgorithms.HmacSha256)));
+    private static async Task<HttpResponseMessage> SendOrder(HttpClient client, string token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/orders") { Content = JsonContent.Create(new CreateOrder("SKU-1", 1)) };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Add("Idempotency-Key", "contract-" + Guid.NewGuid().ToString("N"));
+        return await client.SendAsync(request);
+    }
+
+    [Fact] public async Task InvalidSubjectsAreAuthenticationFailures()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        foreach (var subjects in new[] { Array.Empty<string>(), new[] { "" }, new[] { "alice", "bob" }, new[] { new string('a', 257) } }) {
+            var claims = subjects.Select(subject => new Claim("sub", subject)).Append(new Claim("roles", "orders_writer"));
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SendOrder(client, Sign(claims))).StatusCode);
+        }
     }
 
 // TESTS
