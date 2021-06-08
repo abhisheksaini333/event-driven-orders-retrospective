@@ -136,5 +136,14 @@ public class ApiContracts
         }
     }
 
+
+    [Fact] public async Task JwtIssuerActivationAndSignatureContracts()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        var claims = new[] { new Claim("sub", "alice"), new Claim("roles", "orders_writer") };
+        var tokens = new[] { Sign(claims, issuer: "https://other.test"), Sign(claims, notBefore: DateTime.UtcNow.AddMinutes(10)), Sign(claims, unsigned: true) };
+        foreach (var token in tokens) Assert.Equal(HttpStatusCode.Unauthorized, (await SendOrder(client, token)).StatusCode);
+    }
+
 // TESTS
 }
