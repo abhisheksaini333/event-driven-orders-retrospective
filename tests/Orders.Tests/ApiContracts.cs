@@ -145,5 +145,20 @@ public class ApiContracts
         foreach (var token in tokens) Assert.Equal(HttpStatusCode.Unauthorized, (await SendOrder(client, token)).StatusCode);
     }
 
+
+    [Fact] public async Task OrderReadAuthorizationMatrix()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        var submitted = await SendOrder(client, OrdersFactory.Token("orders_writer"));
+        var order = await submitted.Content.ReadFromJsonAsync<Order>(); Assert.NotNull(order);
+        foreach (var item in new[] {
+            ("orders_reader", "alice", HttpStatusCode.OK), ("orders_writer", "alice", HttpStatusCode.OK),
+            ("orders_reader", "bob", HttpStatusCode.NotFound), ("unprivileged", "alice", HttpStatusCode.Forbidden) }) {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/orders/" + order.Id);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token(item.Item1, item.Item2));
+            Assert.Equal(item.Item3, (await client.SendAsync(request)).StatusCode);
+        }
+    }
+
 // TESTS
 }
