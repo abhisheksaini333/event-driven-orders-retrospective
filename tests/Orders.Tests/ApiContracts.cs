@@ -160,5 +160,19 @@ public class ApiContracts
         }
     }
 
+
+    [Fact] public async Task ConfiguredClockSkewRejectsExpiredToken()
+    {
+        using var factory = new OrdersFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Auth:ClockSkewSeconds", "0"));
+        using var client = configured.CreateClient();
+        var token = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken("https://issuer.test", "orders-api",
+            new[] { new Claim("sub", "alice"), new Claim("roles", "orders_writer") }, DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddSeconds(-5),
+            new SigningCredentials(OrdersFactory.Key, SecurityAlgorithms.HmacSha256)));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SendOrder(client, token)).StatusCode);
+        using var invalid = factory.WithWebHostBuilder(builder => builder.UseSetting("Auth:ClockSkewSeconds", "9999"));
+        Assert.NotNull(Record.Exception(() => { using var unused = invalid.CreateClient(); }));
+    }
+
 // TESTS
 }

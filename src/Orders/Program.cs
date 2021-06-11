@@ -39,6 +39,8 @@ if (!worker)
             (!builder.Environment.IsDevelopment() && uri.Scheme != "https"))
             throw new ArgumentException("OIDC authority and metadata must be valid HTTPS URLs outside Development.");
 }
+var clockSkewSeconds = builder.Configuration.GetValue<int?>("Auth:ClockSkewSeconds") ?? 15;
+if (clockSkewSeconds is < 0 or > 120) throw new ArgumentException("Auth ClockSkewSeconds must be between 0 and 120.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
     options.Authority = authority;
@@ -58,7 +60,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true, ValidIssuer = options.Authority, ValidateAudience = true, ValidAudience = "orders-api",
-        ValidateLifetime = true, ValidateIssuerSigningKey = true, RoleClaimType = "roles", NameClaimType = "sub", ClockSkew = TimeSpan.FromSeconds(15)
+        ValidateLifetime = true, ValidateIssuerSigningKey = true, RoleClaimType = "roles", NameClaimType = "sub", ClockSkew = TimeSpan.FromSeconds(clockSkewSeconds)
     };
 });
 builder.Services.AddAuthorization(options =>
