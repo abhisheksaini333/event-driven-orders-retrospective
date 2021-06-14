@@ -58,3 +58,5 @@ Before considering a larger deployment, validate TLS and secret rotation, rate l
 New orders include trusted UTC `acceptedAt` and `fulfilledAt` timestamps. Existing stored orders without those fields retain null timestamps; replay never invents a historical acceptance time.
 
 The default admission limit is 10,000 orders. Existing identical requests continue to replay at that limit; new requests require capacity intervention. The check occurs inside the same CAS mutation as acceptance.
+
+Runtime bounds are configured under `Limits`: MaximumOrders, CasAttempts, BatchSize, DispatchIntervalMs, MaximumStateBytes, ReadAttempts and MaximumReadDelayMs. Invalid or out-of-range values fail at startup. Defaults preserve the bounded local workload; increasing one limit does not establish capacity.

@@ -174,5 +174,17 @@ public class ApiContracts
         Assert.NotNull(Record.Exception(() => { using var unused = invalid.CreateClient(); }));
     }
 
+
+    [Fact] public async Task RuntimeLimitsAreValidatedAndApplied()
+    {
+        using var factory = new OrdersFactory();
+        using var invalid = factory.WithWebHostBuilder(builder => builder.UseSetting("Limits:BatchSize", "0"));
+        Assert.NotNull(Record.Exception(() => { using var unused = invalid.CreateClient(); }));
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Limits:MaximumOrders", "1"));
+        using var client = configured.CreateClient();
+        Assert.Equal(HttpStatusCode.Accepted, (await SendOrder(client, OrdersFactory.Token("orders_writer"))).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await SendOrder(client, OrdersFactory.Token("orders_writer"))).StatusCode);
+    }
+
 // TESTS
 }

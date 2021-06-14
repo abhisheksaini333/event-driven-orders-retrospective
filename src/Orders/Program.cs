@@ -14,6 +14,7 @@ var worker = role == "worker";
 if (!bool.TryParse(builder.Configuration["DispatcherEnabled"] ?? "true", out var dispatcherEnabled))
     throw new ArgumentException("DispatcherEnabled must be true or false.");
 _ = DaprSettings.Load(builder.Configuration);
+_ = RuntimeLimits.Load(builder.Configuration);
 builder.Services.AddSingleton<ILedgerStore, DaprLedgerStore>();
 builder.Services.AddSingleton<IEventPublisher, DaprPublisher>();
 builder.Services.AddSingleton<OrdersEngine>();

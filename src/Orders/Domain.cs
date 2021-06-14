@@ -26,8 +26,9 @@ public sealed class InvalidOrder(IReadOnlyDictionary<string, string[]>? errors =
 {
     public IReadOnlyDictionary<string, string[]> Errors { get; } = errors ?? new Dictionary<string, string[]>();
 }
-public sealed class OrdersEngine(ILedgerStore store)
+public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configuration = null)
 {
+    private readonly RuntimeLimits limits = RuntimeLimits.Load(configuration);
     public async Task<(Order Order, bool Created)> Submit(string owner, string key, CreateOrder input, CancellationToken ct = default)
     {
         var errors = new Dictionary<string, string[]>();
@@ -46,7 +47,7 @@ public sealed class OrdersEngine(ILedgerStore store)
                 if (previous.Version != 1 || previous.Fingerprint != fingerprint) throw new IdempotencyConflict();
                 return ((ledger.Orders[previous.OrderId], false), false);
             }
-            if (ledger.Orders.Count >= 10000) throw new LedgerCapacity();
+            if (ledger.Orders.Count >= limits.MaximumOrders) throw new LedgerCapacity();
             var order = new Order(Guid.NewGuid().ToString("N"), owner, input.Sku!, input.Quantity, "accepted", Guid.NewGuid().ToString("N"), TimeProvider.System.GetUtcNow());
             ledger.Orders.Add(order.Id, order);
             ledger.Requests.Add(requestKey, new(fingerprint, order.Id));
@@ -75,7 +76,7 @@ public sealed class OrdersEngine(ILedgerStore store)
 
     public async Task<int> Flush(IEventPublisher publisher, CancellationToken ct = default)
     {
-        var pending = (await store.Read(ct)).Value.Outbox.Values.Take(25).ToArray();
+        var pending = (await store.Read(ct)).Value.Outbox.Values.Take(limits.BatchSize).ToArray();
         foreach (var message in pending)
         {
             // Publish before removal: a crash in between deliberately permits duplicate delivery.
@@ -87,7 +88,7 @@ public sealed class OrdersEngine(ILedgerStore store)
 
     private async Task<T> Mutate<T>(Func<Ledger, (T Result, bool Changed)> action, CancellationToken ct)
     {
-        for (var attempt = 0; attempt < 32; attempt++)
+        for (var attempt = 0; attempt < limits.CasAttempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
             var snapshot = await store.Read(ct);

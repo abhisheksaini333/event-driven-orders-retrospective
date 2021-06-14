@@ -5,7 +5,8 @@ using System.Text.Json;
 namespace Orders;
 public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? configuration = null) : ILedgerStore
 {
-    private const int MaximumStateBytes = 16 * 1024 * 1024;
+    private readonly RuntimeLimits limits = RuntimeLimits.Load(configuration);
+    private int MaximumStateBytes => limits.MaximumStateBytes;
     private readonly DaprSettings settings = DaprSettings.Load(configuration);
     private string StatePath => "/v1.0/state/" + settings.StateStore;
     private string Key => settings.StateKey;
@@ -43,14 +44,14 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
         for (var attempt = 0; ; attempt++)
         {
             var response = await clients.CreateClient("dapr").GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
-            if (attempt >= 2 || response.StatusCode is not (HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)) return response;
+            if (attempt + 1 >= limits.ReadAttempts || response.StatusCode is not (HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)) return response;
             var advised = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow);
-            var delay = advised is { } value ? TimeSpan.FromMilliseconds(Math.Clamp(value.TotalMilliseconds, 0, 2000)) : TimeSpan.FromMilliseconds(20 * (1 << attempt));
+            var delay = advised is { } value ? TimeSpan.FromMilliseconds(Math.Clamp(value.TotalMilliseconds, 0, limits.MaximumReadDelayMs)) : TimeSpan.FromMilliseconds(20 * (1 << attempt));
             response.Dispose();
             await Task.Delay(delay, ct);
         }
     }
-    private static async Task<byte[]> ReadBounded(HttpContent content, CancellationToken ct)
+    private async Task<byte[]> ReadBounded(HttpContent content, CancellationToken ct)
     {
         if (content.Headers.ContentLength > MaximumStateBytes) throw new HttpRequestException("State response exceeds the configured size bound");
         await using var input = await content.ReadAsStreamAsync(ct);
@@ -88,8 +89,9 @@ public sealed class DaprPublisher(IHttpClientFactory clients, IConfiguration? co
         DaprOperationException.EnsureSuccess(response, "publish");
     }
 }
-public sealed class OutboxDispatcher(OrdersEngine engine, IEventPublisher publisher, ILogger<OutboxDispatcher> logger) : BackgroundService
+public sealed class OutboxDispatcher(OrdersEngine engine, IEventPublisher publisher, ILogger<OutboxDispatcher> logger, IConfiguration? configuration = null) : BackgroundService
 {
+    private readonly RuntimeLimits limits = RuntimeLimits.Load(configuration);
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -98,7 +100,7 @@ public sealed class OutboxDispatcher(OrdersEngine engine, IEventPublisher publis
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception) when (exception is HttpRequestException or LedgerBusy or OperationCanceledException)
             { logger.LogWarning("Outbox deferred; dependency failure type {FailureType}", exception.GetType().Name); }
-            try { await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken); }
+            try { await Task.Delay(TimeSpan.FromMilliseconds(limits.DispatchIntervalMs), stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }
