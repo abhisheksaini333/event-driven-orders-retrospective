@@ -76,12 +76,12 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Cache-Control"] = "no-store";
     try { await next(context); }
-    catch (InvalidOrder) { await Problem(context, 400, "Invalid order or Idempotency-Key"); }
-    catch (IdempotencyConflict) { await Problem(context, 409, "Idempotency-Key already used for different content"); }
-    catch (LedgerCapacity) { await Problem(context, 503, "Order capacity reached; contact the operator"); }
-    catch (LedgerBusy) { context.Response.Headers.RetryAfter = "1"; await Problem(context, 503, "State is busy; retry with the same Idempotency-Key"); }
-    catch (HttpRequestException) { await Problem(context, 503, "Dependency unavailable; retry with the same Idempotency-Key"); }
-    catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested) { await Problem(context, 503, "Dependency timed out; retry with the same Idempotency-Key"); }
+    catch (InvalidOrder error) { await ApiProblems.Write(context, 400, "Invalid order or Idempotency-Key", "invalid_order", error.Errors); }
+    catch (IdempotencyConflict) { await Problem(context, 409, "Idempotency-Key already used for different content", "idempotency_conflict"); }
+    catch (LedgerCapacity) { await Problem(context, 503, "Order capacity reached; contact the operator", "capacity_exceeded"); }
+    catch (LedgerBusy) { context.Response.Headers.RetryAfter = "1"; await Problem(context, 503, "State is busy; retry with the same Idempotency-Key", "state_busy"); }
+    catch (HttpRequestException) { await Problem(context, 503, "Dependency unavailable; retry with the same Idempotency-Key", "dependency_unavailable"); }
+    catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested) { await Problem(context, 503, "Dependency timed out; retry with the same Idempotency-Key", "dependency_timeout"); }
 });
 app.UseAuthentication(); app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "live", role = worker ? "worker" : "api" }));
@@ -121,5 +121,5 @@ else
         await engine.Get(user.FindFirstValue("sub")!, id, ct) is { } order ? Results.Ok(order) : Results.NotFound()).RequireAuthorization("read");
 }
 app.Run();
-static Task Problem(HttpContext context, int status, string title) => Results.Problem(statusCode: status, title: title).ExecuteAsync(context);
+static Task Problem(HttpContext context, int status, string title, string code) => ApiProblems.Write(context, status, title, code);
 public partial class Program { }

@@ -186,5 +186,23 @@ public class ApiContracts
         Assert.Equal(HttpStatusCode.ServiceUnavailable, (await SendOrder(client, OrdersFactory.Token("orders_writer"))).StatusCode);
     }
 
+
+    [Fact] public async Task ProblemResponsesHaveStableContracts()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/orders") { Content = JsonContent.Create(new CreateOrder("bad!", 0)) };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer"));
+        request.Headers.Add("Idempotency-Key", "problem-contract");
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType!.MediaType);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("invalid_order", problem.GetProperty("code").GetString());
+        Assert.Equal("urn:orders:problem:invalid_order", problem.GetProperty("type").GetString());
+        Assert.False(string.IsNullOrEmpty(problem.GetProperty("traceId").GetString()));
+        Assert.True(problem.GetProperty("errors").TryGetProperty("sku", out _));
+        Assert.True(problem.GetProperty("errors").TryGetProperty("quantity", out _));
+    }
+
 // TESTS
 }
