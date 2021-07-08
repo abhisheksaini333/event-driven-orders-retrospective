@@ -204,5 +204,15 @@ public class ApiContracts
         Assert.True(problem.GetProperty("errors").TryGetProperty("quantity", out _));
     }
 
+
+    [Fact] public async Task UnexpectedFailuresDoNotDiscloseDetails()
+    {
+        using var response = await FailureResponse(new InvalidOperationException("sensitive-internal-detail"));
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("sensitive-internal-detail", body); Assert.DoesNotContain("StackTrace", body);
+        Assert.Contains("unexpected_failure", body);
+    }
+
 // TESTS
 }

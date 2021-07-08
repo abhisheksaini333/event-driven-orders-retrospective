@@ -82,6 +82,11 @@ app.Use(async (context, next) =>
     catch (LedgerBusy) { context.Response.Headers.RetryAfter = "1"; await Problem(context, 503, "State is busy; retry with the same Idempotency-Key", "state_busy"); }
     catch (HttpRequestException) { await Problem(context, 503, "Dependency unavailable; retry with the same Idempotency-Key", "dependency_unavailable"); }
     catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested) { await Problem(context, 503, "Dependency timed out; retry with the same Idempotency-Key", "dependency_timeout"); }
+    catch (Exception exception)
+    {
+        app.Logger.LogError("Unexpected request failure type {FailureType}", exception.GetType().Name);
+        await Problem(context, 500, "The request could not be completed", "unexpected_failure");
+    }
 });
 app.UseAuthentication(); app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "live", role = worker ? "worker" : "api" }));
