@@ -1,4 +1,7 @@
 using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
@@ -212,6 +215,21 @@ public class ApiContracts
         var body = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain("sensitive-internal-detail", body); Assert.DoesNotContain("StackTrace", body);
         Assert.Contains("unexpected_failure", body);
+    }
+
+    private static async Task InvokeExceptionMiddleware(HttpContext context, RequestDelegate next)
+    {
+        var type = typeof(OrdersEngine).Assembly.GetType("Orders.ApiExceptionMiddleware"); Assert.NotNull(type);
+        var middleware = Activator.CreateInstance(type, next, NullLoggerFactory.Instance)!;
+        await Assert.IsAssignableFrom<Task>(type.GetMethod("InvokeAsync")!.Invoke(middleware, new object[] { context }));
+    }
+
+    [Fact] public async Task ClientAbortDoesNotWriteReplacementBody()
+    {
+        var context = new DefaultHttpContext(); using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        context.RequestAborted = cancellation.Token; context.Response.Body = new MemoryStream();
+        await InvokeExceptionMiddleware(context, _ => throw new OperationCanceledException(cancellation.Token));
+        Assert.Equal(499, context.Response.StatusCode); Assert.Equal(0, context.Response.Body.Length);
     }
 
 // TESTS
