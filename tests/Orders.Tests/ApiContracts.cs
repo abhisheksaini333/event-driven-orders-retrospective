@@ -232,5 +232,31 @@ public class ApiContracts
         Assert.Equal(499, context.Response.StatusCode); Assert.Equal(0, context.Response.Body.Length);
     }
 
+
+    [Fact] public async Task StartedResponsesAreNotRewritten()
+    {
+        var context = new DefaultHttpContext(); var response = new StartedResponse(); var lifetime = new ObservedLifetime();
+        context.Features.Set<IHttpResponseFeature>(response); context.Features.Set<IHttpRequestLifetimeFeature>(lifetime);
+        await InvokeExceptionMiddleware(context, _ => throw new HttpRequestException("late dependency failure"));
+        Assert.True(lifetime.Aborted); Assert.Equal(200, response.StatusCode); Assert.Equal(0, response.Body.Length);
+    }
+
 // TESTS
+}
+
+public sealed class StartedResponse : IHttpResponseFeature
+{
+    public int StatusCode { get; set; } = 200;
+    public string? ReasonPhrase { get; set; }
+    public IHeaderDictionary Headers { get; set; } = new HeaderDictionary();
+    public Stream Body { get; set; } = new MemoryStream();
+    public bool HasStarted => true;
+    public void OnStarting(Func<object, Task> callback, object state) { }
+    public void OnCompleted(Func<object, Task> callback, object state) { }
+}
+public sealed class ObservedLifetime : IHttpRequestLifetimeFeature
+{
+    public CancellationToken RequestAborted { get; set; }
+    public bool Aborted { get; private set; }
+    public void Abort() => Aborted = true;
 }

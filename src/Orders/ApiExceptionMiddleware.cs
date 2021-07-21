@@ -7,6 +7,11 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next, ILoggerFactory 
         context.Response.Headers["X-Content-Type-Options"] = "nosniff";
         context.Response.Headers["Cache-Control"] = "no-store";
         try { await next(context); }
+        catch (Exception exception) when (context.Response.HasStarted)
+        {
+            logger.LogWarning("Aborting started response after failure type {FailureType}", exception.GetType().Name);
+            context.Abort();
+        }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
             if (!context.Response.HasStarted) context.Response.StatusCode = 499;
