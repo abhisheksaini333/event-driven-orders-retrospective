@@ -74,7 +74,7 @@ var app = builder.Build();
 app.UseMiddleware<ApiExceptionMiddleware>();
 app.UseAuthentication(); app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "live", role = worker ? "worker" : "api" }));
-app.MapGet("/health/ready", async (ILedgerStore store, CancellationToken ct) => { await store.Read(ct); return Results.Ok(new { status = "ready" }); });
+app.MapGet("/health/ready", async (ILedgerStore store, CancellationToken ct) => { await store.Read(ct); return Results.Ok(new { status = "ready", @checked = new[] { "state" } }); });
 if (worker)
 {
     var callbackToken = builder.Configuration["APP_API_TOKEN"];

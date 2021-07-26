@@ -241,6 +241,20 @@ public class ApiContracts
         Assert.True(lifetime.Aborted); Assert.Equal(200, response.StatusCode); Assert.Equal(0, response.Body.Length);
     }
 
+
+    [Fact] public async Task ReadinessReportsItsStateDependencyScope()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        var ready = await client.GetFromJsonAsync<JsonElement>("/health/ready");
+        Assert.Equal("state", ready.GetProperty("checked")[0].GetString());
+        using var unavailable = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services => {
+            services.RemoveAll<ILedgerStore>(); services.AddSingleton<ILedgerStore>(new FailingStore(new HttpRequestException("offline")));
+        }));
+        using var failedClient = unavailable.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await failedClient.GetAsync("/health/live")).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await failedClient.GetAsync("/health/ready")).StatusCode);
+    }
+
 // TESTS
 }
 
