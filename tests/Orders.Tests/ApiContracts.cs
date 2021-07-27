@@ -255,6 +255,17 @@ public class ApiContracts
         Assert.Equal(HttpStatusCode.ServiceUnavailable, (await failedClient.GetAsync("/health/ready")).StatusCode);
     }
 
+
+    [Fact] public async Task RecoverableFailuresHaveRetryAfter()
+    {
+        foreach (var failure in new Exception[] { new HttpRequestException("offline"), new TaskCanceledException("dependency timeout"), new LedgerBusy() }) {
+            using var response = await FailureResponse(failure);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            Assert.Equal(TimeSpan.FromSeconds(1), response.Headers.RetryAfter?.Delta);
+        }
+        using var capacity = await FailureResponse(new LedgerCapacity()); Assert.Null(capacity.Headers.RetryAfter);
+    }
+
 // TESTS
 }
 

@@ -4,6 +4,7 @@ public static class ApiProblems
 {
     public static Task Write(HttpContext context, int status, string title, string code, IReadOnlyDictionary<string, string[]>? errors = null)
     {
+        if (status == 503 && code != "capacity_exceeded") context.Response.Headers.RetryAfter = "1";
         var extensions = new Dictionary<string, object?> { ["code"] = code, ["traceId"] = Activity.Current?.Id ?? context.TraceIdentifier };
         if (errors is not null) extensions["errors"] = errors;
         return Results.Problem(statusCode: status, title: title, type: "urn:orders:problem:" + code, extensions: extensions).ExecuteAsync(context);
