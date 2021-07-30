@@ -6,7 +6,12 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next, ILoggerFactory 
     {
         context.Response.Headers["X-Content-Type-Options"] = "nosniff";
         context.Response.Headers["Cache-Control"] = "no-store";
-        try { await next(context); }
+        try
+        {
+            await next(context);
+            if (!context.Response.HasStarted && context.Response.StatusCode is 400 or 413 or 415 && string.IsNullOrEmpty(context.Response.ContentType))
+                await ApiProblems.Write(context, context.Response.StatusCode, "Invalid HTTP request", "invalid_request");
+        }
         catch (Exception exception) when (context.Response.HasStarted)
         {
             logger.LogWarning("Aborting started response after failure type {FailureType}", exception.GetType().Name);
@@ -16,6 +21,7 @@ public sealed class ApiExceptionMiddleware(RequestDelegate next, ILoggerFactory 
         {
             if (!context.Response.HasStarted) context.Response.StatusCode = 499;
         }
+        catch (BadHttpRequestException error) { await ApiProblems.Write(context, error.StatusCode, "Invalid HTTP request", "invalid_request"); }
         catch (InvalidOrder error) { await ApiProblems.Write(context, 400, "Invalid order or Idempotency-Key", "invalid_order", error.Errors); }
         catch (IdempotencyConflict) { await ApiProblems.Write(context, 409, "Idempotency-Key already used for different content", "idempotency_conflict"); }
         catch (LedgerCapacity) { await ApiProblems.Write(context, 503, "Order capacity reached; contact the operator", "capacity_exceeded"); }

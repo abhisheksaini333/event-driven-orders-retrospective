@@ -266,6 +266,19 @@ public class ApiContracts
         using var capacity = await FailureResponse(new LedgerCapacity()); Assert.Null(capacity.Headers.RetryAfter);
     }
 
+
+    [Fact] public async Task MalformedHttpRequestsUseProblemDetails()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        foreach (var item in new[] { ("{broken", "application/json", HttpStatusCode.BadRequest), ("plain", "text/plain", HttpStatusCode.UnsupportedMediaType) }) {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/orders") { Content = new StringContent(item.Item1, System.Text.Encoding.UTF8, item.Item2) };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer")); request.Headers.Add("Idempotency-Key", "bad-http-key");
+            using var response = await client.SendAsync(request); Assert.Equal(item.Item3, response.StatusCode);
+            Assert.Equal("application/problem+json", response.Content.Headers.ContentType!.MediaType);
+            Assert.Equal("invalid_request", (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        }
+    }
+
 // TESTS
 }
 
