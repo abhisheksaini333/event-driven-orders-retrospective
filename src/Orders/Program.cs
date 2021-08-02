@@ -18,6 +18,7 @@ _ = RuntimeLimits.Load(builder.Configuration);
 builder.Services.AddSingleton<ILedgerStore, DaprLedgerStore>();
 builder.Services.AddSingleton<IEventPublisher, DaprPublisher>();
 builder.Services.AddSingleton<OrdersEngine>();
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new CreateOrderConverter()));
 var endpointText = builder.Configuration["Dapr:Endpoint"] ?? "http://127.0.0.1:3500";
 if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var daprEndpoint) || daprEndpoint.Scheme is not ("http" or "https") || string.IsNullOrEmpty(daprEndpoint.Host) ||
     daprEndpoint.UserInfo.Length != 0 || daprEndpoint.Query.Length != 0 || daprEndpoint.Fragment.Length != 0 || daprEndpoint.AbsolutePath != "/")

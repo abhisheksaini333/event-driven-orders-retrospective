@@ -279,6 +279,17 @@ public class ApiContracts
         }
     }
 
+
+    [Fact] public async Task DuplicateJsonMembersAreRejected()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        foreach (var body in new[] { "{\"sku\":\"SKU-1\",\"quantity\":1,\"quantity\":2}", "{\"sku\":\"SKU-1\",\"SKU\":\"SKU-2\",\"quantity\":1}" }) {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/orders") { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer")); request.Headers.Add("Idempotency-Key", "duplicate-json");
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(request)).StatusCode);
+        }
+    }
+
 // TESTS
 }
 
