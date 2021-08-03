@@ -19,7 +19,7 @@ public sealed class CreateOrderConverter : JsonConverter<CreateOrder>
                 case "quantity":
                     if (!property.Value.TryGetInt32(out quantity)) throw new JsonException("Quantity must be an integer.");
                     break;
-                default: break;
+                default: throw new JsonException("Unknown order property.");
             }
         }
         return new(sku!, quantity);

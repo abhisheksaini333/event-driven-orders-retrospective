@@ -290,6 +290,15 @@ public class ApiContracts
         }
     }
 
+
+    [Fact] public async Task ClientSuppliedOwnerAndStatusAreRejected()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/orders") { Content = JsonContent.Create(new { sku = "SKU-1", quantity = 1, owner = "victim", status = "fulfilled" }) };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer")); request.Headers.Add("Idempotency-Key", "unknown-field");
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(request)).StatusCode);
+    }
+
 // TESTS
 }
 
