@@ -299,6 +299,19 @@ public class ApiContracts
         Assert.Equal(HttpStatusCode.BadRequest, (await client.SendAsync(request)).StatusCode);
     }
 
+
+    [Fact] public async Task KestrelRejectsOversizedBodies()
+    {
+        using var factory = new OrdersFactory(); factory.UseKestrel(0); using var client = factory.CreateClient();
+        foreach (var chunked in new[] { false, true }) {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/orders") { Content = JsonContent.Create(new CreateOrder(new string('A', 6000), 1)) };
+            if (chunked) request.Headers.TransferEncodingChunked = true;
+            else await request.Content.LoadIntoBufferAsync();
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer")); request.Headers.Add("Idempotency-Key", "oversized-body");
+            Assert.Equal(HttpStatusCode.RequestEntityTooLarge, (await client.SendAsync(request)).StatusCode);
+        }
+    }
+
 // TESTS
 }
 
