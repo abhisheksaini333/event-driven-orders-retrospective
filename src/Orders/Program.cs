@@ -105,6 +105,7 @@ else
     app.MapPost("/orders", async (CreateOrder input, HttpContext context, OrdersEngine engine, CancellationToken ct) =>
     {
         var result = await engine.Submit(context.User.FindFirstValue("sub")!, context.Request.Headers["Idempotency-Key"].ToString(), input, ct);
+        context.Response.Headers["Idempotency-Replayed"] = result.Created ? "false" : "true";
         return result.Created ? Results.Accepted($"/orders/{result.Order.Id}", result.Order) : Results.Ok(result.Order);
     }).RequireAuthorization("write");
     app.MapGet("/orders/{id}", async (string id, ClaimsPrincipal user, OrdersEngine engine, CancellationToken ct) =>

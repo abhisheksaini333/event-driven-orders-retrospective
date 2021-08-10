@@ -312,6 +312,19 @@ public class ApiContracts
         }
     }
 
+
+    [Fact] public async Task ReplayMetadataDistinguishesAcceptance()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer"));
+        client.DefaultRequestHeaders.Add("Idempotency-Key", "replay-metadata");
+        using var accepted = await client.PostAsJsonAsync("/orders", new CreateOrder("SKU-1", 1));
+        using var replay = await client.PostAsJsonAsync("/orders", new CreateOrder("SKU-1", 1));
+        Assert.Equal("false", accepted.Headers.GetValues("Idempotency-Replayed").Single());
+        Assert.Equal("true", replay.Headers.GetValues("Idempotency-Replayed").Single());
+        Assert.True(accepted.Headers.CacheControl!.NoStore); Assert.True(replay.Headers.CacheControl!.NoStore);
+    }
+
 // TESTS
 }
 
