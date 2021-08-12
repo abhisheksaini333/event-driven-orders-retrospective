@@ -5,6 +5,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Orders;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 4096);
@@ -71,9 +73,23 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("read", policy => policy.RequireAuthenticatedUser().RequireClaim("sub").RequireRole("orders_reader", "orders_writer"));
 });
 if (!worker && dispatcherEnabled) builder.Services.AddHostedService<OutboxDispatcher>();
+var writesPerMinute = builder.Configuration.GetValue<int?>("Limits:WritesPerMinute") ?? 1000;
+if (writesPerMinute is < 1 or > 100000) throw new ArgumentException("WritesPerMinute must be between 1 and 100000.");
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("orders-write", context => RateLimitPartition.GetFixedWindowLimiter(context.User.FindFirstValue("sub") ?? "anonymous", _ => new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = writesPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+    }));
+    options.OnRejected = async (rejection, ct) =>
+    {
+        rejection.HttpContext.Response.Headers.RetryAfter = "60";
+        await ApiProblems.Write(rejection.HttpContext, 429, "Write rate exceeded; retry later with the same key", "rate_limited");
+    };
+});
 var app = builder.Build();
 app.UseMiddleware<ApiExceptionMiddleware>();
-app.UseAuthentication(); app.UseAuthorization();
+app.UseAuthentication(); app.UseAuthorization(); app.UseRateLimiter();
 app.MapGet("/health/live", () => Results.Ok(new { status = "live", role = worker ? "worker" : "api" }));
 app.MapGet("/health/ready", async (ILedgerStore store, CancellationToken ct) => { await store.Read(ct); return Results.Ok(new { status = "ready", @checked = new[] { "state" } }); });
 if (worker)
@@ -107,7 +123,7 @@ else
         var result = await engine.Submit(context.User.FindFirstValue("sub")!, context.Request.Headers["Idempotency-Key"].ToString(), input, ct);
         context.Response.Headers["Idempotency-Replayed"] = result.Created ? "false" : "true";
         return result.Created ? Results.Accepted($"/orders/{result.Order.Id}", result.Order) : Results.Ok(result.Order);
-    }).RequireAuthorization("write");
+    }).RequireAuthorization("write").RequireRateLimiting("orders-write");
     app.MapGet("/orders/{id}", async (string id, ClaimsPrincipal user, OrdersEngine engine, CancellationToken ct) =>
         await engine.Get(user.FindFirstValue("sub")!, id, ct) is { } order ? Results.Ok(order) : Results.NotFound()).RequireAuthorization("read");
 }

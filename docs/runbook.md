@@ -60,3 +60,5 @@ New orders include trusted UTC `acceptedAt` and `fulfilledAt` timestamps. Existi
 The default admission limit is 10,000 orders. Existing identical requests continue to replay at that limit; new requests require capacity intervention. The check occurs inside the same CAS mutation as acceptance.
 
 Runtime bounds are configured under `Limits`: MaximumOrders, CasAttempts, BatchSize, DispatchIntervalMs, MaximumStateBytes, ReadAttempts and MaximumReadDelayMs. Invalid or out-of-range values fail at startup. Defaults preserve the bounded local workload; increasing one limit does not establish capacity.
+
+Write requests are limited per authenticated subject (`Limits:WritesPerMinute`, default 1,000). A 429 response includes Retry-After. The local limiter is per process; a distributed deployment needs an ingress or shared policy. Retry with the same idempotency key after the window.

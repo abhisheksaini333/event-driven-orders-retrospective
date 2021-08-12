@@ -325,6 +325,20 @@ public class ApiContracts
         Assert.True(accepted.Headers.CacheControl!.NoStore); Assert.True(replay.Headers.CacheControl!.NoStore);
     }
 
+
+    [Fact] public async Task WriteRateLimitIsPartitionedBySubject()
+    {
+        using var factory = new OrdersFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Limits:WritesPerMinute", "2"));
+        using var client = configured.CreateClient(); var alice = OrdersFactory.Token("orders_writer");
+        Assert.Equal(HttpStatusCode.Accepted, (await SendOrder(client, alice)).StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, (await SendOrder(client, alice)).StatusCode);
+        using var limited = await SendOrder(client, alice);
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode); Assert.Equal(TimeSpan.FromSeconds(60), limited.Headers.RetryAfter?.Delta);
+        Assert.Equal("rate_limited", (await limited.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.Accepted, (await SendOrder(client, OrdersFactory.Token("orders_writer", "bob"))).StatusCode);
+    }
+
 // TESTS
 }
 
