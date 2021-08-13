@@ -40,11 +40,11 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
         if (errors.Count != 0) throw new InvalidOrder(errors);
         var requestKey = Hash(owner + "\n" + key);
         var fingerprint = Hash(input.Sku + "\n" + input.Quantity.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        return await Mutate(ledger =>
+        var result = await Mutate(ledger =>
         {
             if (ledger.Requests.TryGetValue(requestKey, out var previous))
             {
-                if (previous.Version != 1 || previous.Fingerprint != fingerprint) throw new IdempotencyConflict();
+                if (previous.Version != 1 || previous.Fingerprint != fingerprint) { OrdersTelemetry.Submission("conflict"); throw new IdempotencyConflict(); }
                 return ((ledger.Orders[previous.OrderId], false), false);
             }
             if (ledger.Orders.Count >= limits.MaximumOrders) throw new LedgerCapacity();
@@ -54,6 +54,8 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
             ledger.Outbox.Add(order.EventId, new(order.EventId, order.Id));
             return ((order, true), true);
         }, ct);
+        OrdersTelemetry.Submission(result.Item2 ? "accepted" : "replayed");
+        return result;
     }
 
     public async Task<Order?> Get(string owner, string id, CancellationToken ct = default)
