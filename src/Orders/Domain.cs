@@ -95,9 +95,12 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
             ct.ThrowIfCancellationRequested();
             var snapshot = await store.Read(ct);
             var outcome = action(snapshot.Value);
-            if (!outcome.Changed || await store.CompareExchange(snapshot.Value, snapshot.ETag, ct)) return outcome.Result;
+            if (!outcome.Changed) { OrdersTelemetry.CasCompleted(0); return outcome.Result; }
+            if (await store.CompareExchange(snapshot.Value, snapshot.ETag, ct)) { OrdersTelemetry.CasCompleted(attempt + 1); return outcome.Result; }
+            OrdersTelemetry.CasConflict();
             await Task.Delay(Random.Shared.Next(2, Math.Min(100, 5 + attempt * 5)), ct);
         }
+        OrdersTelemetry.CasExhausted();
         throw new LedgerBusy();
     }
 
