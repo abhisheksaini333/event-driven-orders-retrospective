@@ -36,6 +36,21 @@ public class TelemetryContracts
         Assert.Equal(1, totals.GetValueOrDefault("orders.cas.conflicts")); Assert.Equal(1, totals.GetValueOrDefault("orders.cas.exhausted"));
     }
 
+
+    [Fact] public async Task OutboxGaugesReflectPendingWork()
+    {
+        var observed = new Dictionary<string, double>(); using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, owner) => { if (instrument.Meter.Name == "Orders.Core" && instrument.Name.StartsWith("orders.outbox.")) owner.EnableMeasurementEvents(instrument); };
+        listener.SetMeasurementEventCallback<int>((instrument, value, _, _) => observed[instrument.Name] = value);
+        listener.SetMeasurementEventCallback<double>((instrument, value, _, _) => observed[instrument.Name] = value); listener.Start();
+        var engine = new OrdersEngine(new MemoryStore()); await engine.Submit("alice", "outbox-gauge", new("SKU-1", 1));
+        await Assert.ThrowsAsync<HttpRequestException>(() => engine.Flush(new RecordingPublisher { Fail = true }));
+        listener.RecordObservableInstruments();
+        Assert.Equal(1, observed.GetValueOrDefault("orders.outbox.pending", -1)); Assert.True(observed.GetValueOrDefault("orders.outbox.oldest_age", -1) >= 0);
+        await engine.Flush(new RecordingPublisher()); await engine.Flush(new RecordingPublisher()); listener.RecordObservableInstruments();
+        Assert.Equal(0, observed["orders.outbox.pending"]);
+    }
+
 // TESTS
 }
 public sealed class CapturingLogger<T> : ILogger<T>

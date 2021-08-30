@@ -78,7 +78,9 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
 
     public async Task<int> Flush(IEventPublisher publisher, CancellationToken ct = default)
     {
-        var pending = (await store.Read(ct)).Value.Outbox.Values.Take(limits.BatchSize).ToArray();
+        var snapshot = (await store.Read(ct)).Value;
+        OrdersTelemetry.Backlog(snapshot);
+        var pending = snapshot.Outbox.Values.Take(limits.BatchSize).ToArray();
         foreach (var message in pending)
         {
             // Publish before removal: a crash in between deliberately permits duplicate delivery.

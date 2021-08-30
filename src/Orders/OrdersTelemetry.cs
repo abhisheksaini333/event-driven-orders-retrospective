@@ -3,6 +3,17 @@ namespace Orders;
 public static class OrdersTelemetry
 {
     public static readonly Meter Meter = new("Orders.Core", "1.0.0");
+    private static int pending;
+    private static double oldestAge;
+    private static readonly ObservableGauge<int> Pending = Meter.CreateObservableGauge("orders.outbox.pending", () => Volatile.Read(ref pending));
+    private static readonly ObservableGauge<double> Oldest = Meter.CreateObservableGauge("orders.outbox.oldest_age", () => Volatile.Read(ref oldestAge), unit: "s");
+    public static void Backlog(Ledger ledger)
+    {
+        Volatile.Write(ref pending, ledger.Outbox.Count);
+        var timestamps = ledger.Outbox.Values.Select(message => ledger.Orders.GetValueOrDefault(message.OrderId)?.AcceptedAt).ToArray();
+        var age = timestamps.Length == 0 ? 0 : timestamps.Any(value => value is null) ? double.NaN : Math.Max(0, (DateTimeOffset.UtcNow - timestamps.Min()!.Value).TotalSeconds);
+        Volatile.Write(ref oldestAge, age);
+    }
     private static readonly Counter<long> Submissions = Meter.CreateCounter<long>("orders.submissions", unit: "requests");
     private static readonly Counter<long> Conflicts = Meter.CreateCounter<long>("orders.cas.conflicts");
     private static readonly Counter<long> Exhaustions = Meter.CreateCounter<long>("orders.cas.exhausted");
