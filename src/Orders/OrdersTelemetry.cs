@@ -1,7 +1,9 @@
 using System.Diagnostics.Metrics;
+using System.Diagnostics;
 namespace Orders;
 public static class OrdersTelemetry
 {
+    public static readonly ActivitySource Activities = new("Orders.Core", "1.0.0");
     public static readonly Meter Meter = new("Orders.Core", "1.0.0");
     private static int pending;
     private static double oldestAge;

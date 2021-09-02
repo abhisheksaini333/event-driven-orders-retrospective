@@ -85,6 +85,7 @@ public sealed class DaprPublisher(IHttpClientFactory clients, IConfiguration? co
     public async Task Publish(OrderEvent message, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        using var activity = OrdersTelemetry.Activities.StartActivity("orders.publish");
         using var response = await clients.CreateClient("dapr").PostAsJsonAsync("/v1.0/publish/" + settings.PubSub + "/" + settings.Topic, message, ct);
         DaprOperationException.EnsureSuccess(response, "publish");
     }

@@ -51,6 +51,20 @@ public class TelemetryContracts
         Assert.Equal(0, observed["orders.outbox.pending"]);
     }
 
+
+    [Fact] public async Task OrderActivitiesFollowExecutionBoundaries()
+    {
+        var observed = new List<Activity>(); using var listener = new ActivityListener {
+            ShouldListenTo = source => source.Name == "Orders.Core", Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = activity => observed.Add(activity)
+        }; ActivitySource.AddActivityListener(listener);
+        var engine = new OrdersEngine(new MemoryStore()); var order = (await engine.Submit("private-owner", "private-trace-key", new("SKU-1", 1))).Order;
+        await engine.Process(new(order.EventId, order.Id));
+        await new DaprPublisher(new StubClients(new StubHandler(_ => new(System.Net.HttpStatusCode.NoContent)))).Publish(new(order.EventId, order.Id), default);
+        Assert.Equal(new[] { "orders.submit", "orders.process", "orders.publish" }, observed.Select(item => item.OperationName));
+        Assert.All(observed, item => { Assert.Null(item.GetTagItem("owner")); Assert.Null(item.GetTagItem("idempotency_key")); });
+    }
+
 // TESTS
 }
 public sealed class CapturingLogger<T> : ILogger<T>

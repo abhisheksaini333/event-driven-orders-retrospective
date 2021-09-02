@@ -31,6 +31,7 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
     private readonly RuntimeLimits limits = RuntimeLimits.Load(configuration);
     public async Task<(Order Order, bool Created)> Submit(string owner, string key, CreateOrder input, CancellationToken ct = default)
     {
+        using var activity = OrdersTelemetry.Activities.StartActivity("orders.submit");
         var errors = new Dictionary<string, string[]>();
         if (input is null) throw new InvalidOrder(new Dictionary<string, string[]> { ["request"] = ["A request body is required."] });
         if (string.IsNullOrWhiteSpace(owner) || owner.Length > 256 || owner.Any(char.IsControl)) errors["owner"] = ["Owner must contain 1 to 256 characters without controls."];
@@ -65,7 +66,10 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
         return state.Value.Orders.TryGetValue(id, out var order) && order.Owner == owner ? order : null;
     }
 
-    public Task<string> Process(OrderEvent message, CancellationToken ct = default) => Mutate(ledger =>
+    public async Task<string> Process(OrderEvent message, CancellationToken ct = default)
+    {
+        using var activity = OrdersTelemetry.Activities.StartActivity("orders.process");
+        return await Mutate(ledger =>
     {
         if (message.Version != 1 || !Guid.TryParseExact(message.EventId, "N", out _) || !Guid.TryParseExact(message.OrderId, "N", out _) ||
             !ledger.Orders.TryGetValue(message.OrderId, out var order) || order.EventId != message.EventId)
@@ -75,6 +79,7 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
         ledger.Receipts.Add(message.EventId);
         return ("SUCCESS", true);
     }, ct);
+    }
 
     public async Task<int> Flush(IEventPublisher publisher, CancellationToken ct = default)
     {
