@@ -65,6 +65,20 @@ public class TelemetryContracts
         Assert.All(observed, item => { Assert.Null(item.GetTagItem("owner")); Assert.Null(item.GetTagItem("idempotency_key")); });
     }
 
+
+    [Fact] public async Task TransitionLogsExcludeIdentityAndReplaySecrets()
+    {
+        var logger = new CapturingLogger<OrdersEngine>();
+        var constructor = typeof(OrdersEngine).GetConstructors().SingleOrDefault(item => item.GetParameters().Length == 3); Assert.NotNull(constructor);
+        var engine = (OrdersEngine)constructor.Invoke(new object?[] { new MemoryStore(), null, logger });
+        var order = (await engine.Submit("private-owner", "private-log-key", new("SKU-1", 1))).Order;
+        await engine.Submit("private-owner", "private-log-key", new("SKU-1", 1));
+        await engine.Process(new(order.EventId, order.Id)); await engine.Process(new(order.EventId, order.Id));
+        Assert.Equal(2, logger.Messages.Count);
+        Assert.Contains("Accepted", logger.Messages[0]); Assert.Contains("Fulfilled", logger.Messages[1]);
+        Assert.All(logger.Messages, message => { Assert.DoesNotContain("private-owner", message); Assert.DoesNotContain("private-log-key", message); });
+    }
+
 // TESTS
 }
 public sealed class CapturingLogger<T> : ILogger<T>

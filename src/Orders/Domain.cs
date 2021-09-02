@@ -26,7 +26,7 @@ public sealed class InvalidOrder(IReadOnlyDictionary<string, string[]>? errors =
 {
     public IReadOnlyDictionary<string, string[]> Errors { get; } = errors ?? new Dictionary<string, string[]>();
 }
-public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configuration = null)
+public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configuration = null, ILogger<OrdersEngine>? logger = null)
 {
     private readonly RuntimeLimits limits = RuntimeLimits.Load(configuration);
     public async Task<(Order Order, bool Created)> Submit(string owner, string key, CreateOrder input, CancellationToken ct = default)
@@ -56,6 +56,7 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
             return ((order, true), true);
         }, ct);
         OrdersTelemetry.Submission(result.Item2 ? "accepted" : "replayed");
+        if (result.Item2) logger?.LogInformation("Accepted synthetic order {OrderId}", result.Item1.Id);
         return result;
     }
 
@@ -69,16 +70,18 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
     public async Task<string> Process(OrderEvent message, CancellationToken ct = default)
     {
         using var activity = OrdersTelemetry.Activities.StartActivity("orders.process");
-        return await Mutate(ledger =>
-    {
-        if (message.Version != 1 || !Guid.TryParseExact(message.EventId, "N", out _) || !Guid.TryParseExact(message.OrderId, "N", out _) ||
-            !ledger.Orders.TryGetValue(message.OrderId, out var order) || order.EventId != message.EventId)
-            return ("DROP", false);
-        if (ledger.Receipts.Contains(message.EventId)) return ("SUCCESS", false);
-        ledger.Orders[order.Id] = order with { Status = "fulfilled", FulfilledAt = TimeProvider.System.GetUtcNow() };
-        ledger.Receipts.Add(message.EventId);
-        return ("SUCCESS", true);
-    }, ct);
+        var result = await Mutate(ledger =>
+        {
+            if (message.Version != 1 || !Guid.TryParseExact(message.EventId, "N", out _) || !Guid.TryParseExact(message.OrderId, "N", out _) ||
+                !ledger.Orders.TryGetValue(message.OrderId, out var order) || order.EventId != message.EventId)
+                return (("DROP", false), false);
+            if (ledger.Receipts.Contains(message.EventId)) return (("SUCCESS", false), false);
+            ledger.Orders[order.Id] = order with { Status = "fulfilled", FulfilledAt = TimeProvider.System.GetUtcNow() };
+            ledger.Receipts.Add(message.EventId);
+            return (("SUCCESS", true), true);
+        }, ct);
+        if (result.Item2) logger?.LogInformation("Fulfilled synthetic order {OrderId}", message.OrderId);
+        return result.Item1;
     }
 
     public async Task<int> Flush(IEventPublisher publisher, CancellationToken ct = default)
