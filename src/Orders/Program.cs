@@ -69,6 +69,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 });
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("operate", policy => policy.RequireAuthenticatedUser().RequireClaim("sub").RequireRole("orders_operator"));
     options.AddPolicy("write", policy => policy.RequireAuthenticatedUser().RequireClaim("sub").RequireRole("orders_writer"));
     options.AddPolicy("read", policy => policy.RequireAuthenticatedUser().RequireClaim("sub").RequireRole("orders_reader", "orders_writer"));
 });
@@ -118,6 +119,13 @@ if (worker)
 }
 else
 {
+    app.MapGet("/operations/dispatch", async (ILedgerStore store, CancellationToken ct) =>
+    {
+        var ledger = (await store.Read(ct)).Value;
+        var timestamps = ledger.Outbox.Values.Select(message => ledger.Orders.GetValueOrDefault(message.OrderId)?.AcceptedAt).ToArray();
+        double? oldestPendingSeconds = timestamps.Length == 0 ? 0 : timestamps.Any(value => value is null) ? null : Math.Max(0, (DateTimeOffset.UtcNow - timestamps.Min()!.Value).TotalSeconds);
+        return Results.Ok(new { enabled = dispatcherEnabled, pendingEvents = ledger.Outbox.Count, oldestPendingSeconds, schemaVersion = ledger.SchemaVersion });
+    }).RequireAuthorization("operate");
     app.MapPost("/orders", async (CreateOrder input, HttpContext context, OrdersEngine engine, CancellationToken ct) =>
     {
         var result = await engine.Submit(context.User.FindFirstValue("sub")!, context.Request.Headers["Idempotency-Key"].ToString(), input, ct);

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 env = ROOT / '.env'
 if env.exists():
     raise SystemExit('Existing .env retained. See docs/runbook.md before resetting credentials or volumes.')
-values = {key: secrets.token_urlsafe(32) for key in ('KEYCLOAK_ADMIN_PASSWORD', 'ORDERS_CLIENT_SECRET', 'READER_CLIENT_SECRET', 'DAPR_API_TOKEN', 'WORKER_CALLBACK_TOKEN')}
+values = {key: secrets.token_urlsafe(32) for key in ('KEYCLOAK_ADMIN_PASSWORD', 'ORDERS_CLIENT_SECRET', 'READER_CLIENT_SECRET', 'OPERATOR_CLIENT_SECRET', 'DAPR_API_TOKEN', 'WORKER_CALLBACK_TOKEN')}
 local = ROOT / '.local'
 local.mkdir(mode=0o700, exist_ok=True)
 def client(name, secret, role):
@@ -24,7 +24,7 @@ def client(name, secret, role):
         ]
     }
 realm = {'realm': 'orders', 'enabled': True, 'sslRequired': 'none', 'accessTokenLifespan': 300,
-         'bruteForceProtected': True, 'clients': [client('orders-cli', values['ORDERS_CLIENT_SECRET'], 'orders_writer'), client('reader-cli', values['READER_CLIENT_SECRET'], 'orders_reader')]}
+         'bruteForceProtected': True, 'clients': [client('orders-cli', values['ORDERS_CLIENT_SECRET'], 'orders_writer'), client('reader-cli', values['READER_CLIENT_SECRET'], 'orders_reader'), client('operator-cli', values['OPERATOR_CLIENT_SECRET'], 'orders_operator')]}
 for path, content in [(env, ''.join(f'{key}={value}\n' for key, value in values.items())), (local / 'realm.json', json.dumps(realm, indent=2) + '\n')]:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, 'w') as target:

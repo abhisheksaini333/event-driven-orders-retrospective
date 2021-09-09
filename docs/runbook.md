@@ -64,3 +64,5 @@ Runtime bounds are configured under `Limits`: MaximumOrders, CasAttempts, BatchS
 Write requests are limited per authenticated subject (`Limits:WritesPerMinute`, default 1,000). A 429 response includes Retry-After. The local limiter is per process; a distributed deployment needs an ingress or shared policy. Retry with the same idempotency key after the window.
 
 The `Orders.Core` meter reports submission outcomes, CAS contention, last-observed outbox depth and oldest pending age. Unknown legacy acceptance times produce an unknown (`NaN`) age. Gauges update during dispatcher reads; they are observations, not a synchronous queue query. No owner, key or order ID is used as a metric label.
+
+`GET /operations/dispatch` requires `orders_operator` and returns only enablement, pending count, oldest known age and schema version. It does not expose order IDs or owner identities. Fresh generated realms include an operator-cli client; an existing realm needs an explicit client migration before this role is usable.

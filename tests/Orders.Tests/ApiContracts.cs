@@ -339,6 +339,20 @@ public class ApiContracts
         Assert.Equal(HttpStatusCode.Accepted, (await SendOrder(client, OrdersFactory.Token("orders_writer", "bob"))).StatusCode);
     }
 
+
+    [Fact] public async Task DispatcherStatusRequiresOperatorRole()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        await SendOrder(client, OrdersFactory.Token("orders_writer"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/operations/dispatch")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer"));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/operations/dispatch")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_operator"));
+        var state = await client.GetFromJsonAsync<JsonElement>("/operations/dispatch");
+        Assert.False(state.GetProperty("enabled").GetBoolean()); Assert.Equal(1, state.GetProperty("pendingEvents").GetInt32());
+        Assert.False(state.TryGetProperty("orders", out _)); Assert.False(state.TryGetProperty("owner", out _));
+    }
+
 // TESTS
 }
 
