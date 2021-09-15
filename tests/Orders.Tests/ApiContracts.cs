@@ -353,6 +353,17 @@ public class ApiContracts
         Assert.False(state.TryGetProperty("orders", out _)); Assert.False(state.TryGetProperty("owner", out _));
     }
 
+
+    [Fact] public async Task ProblemCorrelationDoesNotLeakPrivateData()
+    {
+        using var response = await FailureResponse(new InvalidOperationException("private-bearer-token-value"));
+        var body = await response.Content.ReadAsStringAsync(); var problem = JsonDocument.Parse(body).RootElement;
+        Assert.Equal("unexpected_failure", problem.GetProperty("code").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(problem.GetProperty("traceId").GetString()));
+        Assert.DoesNotContain("private-bearer-token-value", body);
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single()); Assert.True(response.Headers.CacheControl!.NoStore);
+    }
+
 // TESTS
 }
 
