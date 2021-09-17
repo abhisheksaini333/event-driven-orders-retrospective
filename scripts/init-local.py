@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
-"""Generate ignored loopback-only demo credentials; never overwrite an existing environment."""
+"""Generate local demo credentials without leaving a partially initialized environment."""
 import json
 import os
 from pathlib import Path
 import secrets
 
-ROOT = Path(__file__).resolve().parents[1]
-env = ROOT / '.env'
-if env.exists():
-    raise SystemExit('Existing .env retained. See docs/runbook.md before resetting credentials or volumes.')
-values = {key: secrets.token_urlsafe(32) for key in ('KEYCLOAK_ADMIN_PASSWORD', 'ORDERS_CLIENT_SECRET', 'READER_CLIENT_SECRET', 'OPERATOR_CLIENT_SECRET', 'DAPR_API_TOKEN', 'WORKER_CALLBACK_TOKEN')}
-local = ROOT / '.local'
-local.mkdir(mode=0o700, exist_ok=True)
 def client(name, secret, role):
     return {
         'clientId': name, 'enabled': True, 'protocol': 'openid-connect', 'publicClient': False,
@@ -23,11 +16,32 @@ def client(name, secret, role):
              'config': {'claim.name': 'roles', 'claim.value': role, 'jsonType.label': 'String', 'access.token.claim': 'true', 'id.token.claim': 'false'}}
         ]
     }
-realm = {'realm': 'orders', 'enabled': True, 'sslRequired': 'none', 'accessTokenLifespan': 300,
-         'bruteForceProtected': True, 'clients': [client('orders-cli', values['ORDERS_CLIENT_SECRET'], 'orders_writer'), client('reader-cli', values['READER_CLIENT_SECRET'], 'orders_reader'), client('operator-cli', values['OPERATOR_CLIENT_SECRET'], 'orders_operator')]}
-for path, content in [(env, ''.join(f'{key}={value}\n' for key, value in values.items())), (local / 'realm.json', json.dumps(realm, indent=2) + '\n')]:
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, 'w') as target:
-        target.write(content)
-os.chmod(local / 'realm.json', 0o644)  # Parent directory remains private; Keycloak's container UID must read the mount.
-print('Generated .env and .local/realm.json with local demo credentials (not printed).')
+
+def initialize(root):
+    env = root / '.env'; local = root / '.local'; realm_path = local / 'realm.json'
+    if env.exists() or realm_path.exists():
+        raise FileExistsError('Existing credential files are retained; reconcile them before initializing.')
+    local.mkdir(mode=0o700, exist_ok=True)
+    values = {key: secrets.token_urlsafe(32) for key in ('KEYCLOAK_ADMIN_PASSWORD', 'ORDERS_CLIENT_SECRET', 'READER_CLIENT_SECRET', 'OPERATOR_CLIENT_SECRET', 'DAPR_API_TOKEN', 'WORKER_CALLBACK_TOKEN')}
+    realm = {'realm': 'orders', 'enabled': True, 'sslRequired': 'none', 'accessTokenLifespan': 300, 'bruteForceProtected': True,
+             'clients': [client('orders-cli', values['ORDERS_CLIENT_SECRET'], 'orders_writer'), client('reader-cli', values['READER_CLIENT_SECRET'], 'orders_reader'), client('operator-cli', values['OPERATOR_CLIENT_SECRET'], 'orders_operator')]}
+    created = []
+    try:
+        for path, content in [(env, ''.join(f'{key}={value}\n' for key, value in values.items())), (realm_path, json.dumps(realm, indent=2) + '\n')]:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            created.append(path)
+            with os.fdopen(fd, 'w') as target:
+                target.write(content)
+                target.flush(); os.fsync(target.fileno())
+        os.chmod(realm_path, 0o644)  # Private parent directory; container UID needs read access to the bind-mounted file.
+    except BaseException:
+        for path in reversed(created):
+            path.unlink(missing_ok=True)
+        raise
+
+def main():
+    initialize(Path(__file__).resolve().parents[1])
+    print('Generated local demo credentials; values are not printed.')
+
+if __name__ == '__main__':
+    main()
