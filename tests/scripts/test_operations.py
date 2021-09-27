@@ -39,4 +39,18 @@ class OperationsTests(unittest.TestCase):
         self.assertFalse((self.root / '.env').exists())
         self.assertEqual('existing realm', realm.read_text())
 
+
+    def test_initializer_rejects_unsafe_layouts(self):
+        outside = self.root / 'outside'; outside.mkdir()
+        local = self.root / '.local'; local.symlink_to(outside, target_is_directory=True)
+        self.assertNotEqual(0, self.cli('init-local.py').returncode)
+        self.assertFalse((self.root / '.env').exists()); self.assertEqual([], list(outside.iterdir()))
+        local.unlink(); local.mkdir(mode=0o755)
+        self.assertNotEqual(0, self.cli('init-local.py').returncode)
+        local.chmod(0o700)
+        result = self.cli('init-local.py'); self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(0o600, (self.root / '.env').stat().st_mode & 0o777)
+        for line in (self.root / '.env').read_text().splitlines():
+            self.assertNotIn(line.split('=', 1)[1], result.stdout + result.stderr)
+
 # TESTS

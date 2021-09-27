@@ -19,6 +19,10 @@ def client(name, secret, role):
 
 def initialize(root):
     env = root / '.env'; local = root / '.local'; realm_path = local / 'realm.json'
+    if local.is_symlink() or env.is_symlink() or realm_path.is_symlink():
+        raise ValueError('Credential paths must not be symbolic links.')
+    if local.exists() and (not local.is_dir() or local.stat().st_mode & 0o077):
+        raise PermissionError('Existing .local directory must be private to its owner.')
     if env.exists() or realm_path.exists():
         raise FileExistsError('Existing credential files are retained; reconcile them before initializing.')
     local.mkdir(mode=0o700, exist_ok=True)
