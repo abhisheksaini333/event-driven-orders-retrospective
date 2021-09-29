@@ -53,4 +53,11 @@ class OperationsTests(unittest.TestCase):
         for line in (self.root / '.env').read_text().splitlines():
             self.assertNotIn(line.split('=', 1)[1], result.stdout + result.stderr)
 
+
+    def test_demo_help_needs_no_credentials(self):
+        result = self.cli('demo.py', '--help')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('--faults', result.stdout); self.assertFalse((self.root / '.env').exists())
+        module = self.load('demo.py'); self.assertTrue(callable(module.token))
+
 # TESTS

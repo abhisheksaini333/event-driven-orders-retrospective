@@ -14,7 +14,8 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 API = 'http://127.0.0.1:4320'
-ENV = dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line)
+def load_env():
+    return dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line and not line.lstrip().startswith('#'))
 
 def request(method, url, data=None, token=None, key=None, headers=None):
     actual = {'Content-Type': 'application/json', **(headers or {})}
@@ -33,7 +34,7 @@ def request(method, url, data=None, token=None, key=None, headers=None):
 
 def token(reader=False):
     body = urllib.parse.urlencode({'grant_type': 'client_credentials', 'client_id': 'reader-cli' if reader else 'orders-cli',
-                                  'client_secret': ENV['READER_CLIENT_SECRET' if reader else 'ORDERS_CLIENT_SECRET']}).encode()
+                                  'client_secret': load_env()['READER_CLIENT_SECRET' if reader else 'ORDERS_CLIENT_SECRET']}).encode()
     req = urllib.request.Request('http://127.0.0.1:4322/realms/orders/protocol/openid-connect/token', data=body)
     with urllib.request.urlopen(req, timeout=10) as response:
         return json.load(response)['access_token']
