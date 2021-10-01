@@ -4,6 +4,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -13,7 +14,16 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-API = 'http://127.0.0.1:4320'
+def local_origin(name, fallback):
+    value = os.environ.get(name, fallback)
+    parsed = urllib.parse.urlparse(value)
+    if parsed.scheme not in ('http', 'https') or parsed.hostname not in ('localhost', '127.0.0.1', '::1') or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ('', '/'):
+        raise ValueError(name + ' must be a loopback HTTP(S) origin.')
+    return value.rstrip('/')
+
+API = local_origin('ORDERS_API_URL', 'http://127.0.0.1:4320')
+KEYCLOAK = local_origin('ORDERS_KEYCLOAK_URL', 'http://127.0.0.1:4322')
+WORKER = local_origin('ORDERS_WORKER_URL', 'http://127.0.0.1:4321')
 def load_env():
     return dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line and not line.lstrip().startswith('#'))
 
@@ -35,7 +45,7 @@ def request(method, url, data=None, token=None, key=None, headers=None):
 def token(reader=False):
     body = urllib.parse.urlencode({'grant_type': 'client_credentials', 'client_id': 'reader-cli' if reader else 'orders-cli',
                                   'client_secret': load_env()['READER_CLIENT_SECRET' if reader else 'ORDERS_CLIENT_SECRET']}).encode()
-    req = urllib.request.Request('http://127.0.0.1:4322/realms/orders/protocol/openid-connect/token', data=body)
+    req = urllib.request.Request(KEYCLOAK + '/realms/orders/protocol/openid-connect/token', data=body)
     with urllib.request.urlopen(req, timeout=10) as response:
         return json.load(response)['access_token']
 
@@ -91,7 +101,7 @@ def run(faults):
     passed('other identity cannot read order')
     until(lambda: fulfilled(bearer, order['id']))
     passed('real Dapr pubsub delivers and worker fulfills')
-    assert request('POST', 'http://127.0.0.1:4321/events/orders', {'data': {}})[0] == 401
+    assert request('POST', WORKER + '/events/orders', {'data': {}})[0] == 401
     passed('worker callback requires sidecar token')
     concurrent_key = 'race-' + uuid.uuid4().hex
     with ThreadPoolExecutor(max_workers=8) as pool:

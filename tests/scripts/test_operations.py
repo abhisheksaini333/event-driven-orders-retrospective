@@ -60,4 +60,14 @@ class OperationsTests(unittest.TestCase):
         self.assertIn('--faults', result.stdout); self.assertFalse((self.root / '.env').exists())
         module = self.load('demo.py'); self.assertTrue(callable(module.token))
 
+
+    def test_demo_endpoints_are_local_and_configurable(self):
+        with patch.dict(os.environ, {'ORDERS_API_URL': 'http://127.0.0.1:54320', 'ORDERS_WORKER_URL': 'http://localhost:54321'}):
+            module = self.load('demo.py')
+            self.assertEqual('http://127.0.0.1:54320', module.API)
+            self.assertEqual('http://localhost:54321', module.WORKER)
+        result = self.cli('demo.py', '--help', env={'ORDERS_API_URL': 'https://external.example'})
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('loopback', result.stderr)
+
 # TESTS
