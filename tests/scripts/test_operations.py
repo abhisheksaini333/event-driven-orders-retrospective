@@ -70,4 +70,13 @@ class OperationsTests(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertIn('loopback', result.stderr)
 
+
+    def test_demo_preserves_non_json_error_status(self):
+        module = self.load('demo.py')
+        error = module.urllib.error.HTTPError('http://localhost', 503, 'Unavailable', {}, io.BytesIO(b'private proxy response'))
+        with patch.object(module.urllib.request, 'urlopen', side_effect=error):
+            status, body = module.request('GET', 'http://localhost')
+        self.assertEqual(503, status); self.assertEqual('non_json_response', body['error'])
+        self.assertNotIn('private proxy response', json.dumps(body))
+
 # TESTS

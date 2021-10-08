@@ -27,6 +27,17 @@ WORKER = local_origin('ORDERS_WORKER_URL', 'http://127.0.0.1:4321')
 def load_env():
     return dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line and not line.lstrip().startswith('#'))
 
+def decode_response(response):
+    raw = response.read(1048577)
+    if len(raw) > 1048576:
+        return {'error': 'response_too_large'}
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {'error': 'non_json_response', 'bytes': len(raw)}
+
 def request(method, url, data=None, token=None, key=None, headers=None):
     actual = {'Content-Type': 'application/json', **(headers or {})}
     if token:
@@ -36,11 +47,9 @@ def request(method, url, data=None, token=None, key=None, headers=None):
     body = json.dumps(data).encode() if data is not None else None
     try:
         with urllib.request.urlopen(urllib.request.Request(url, data=body, method=method, headers=actual), timeout=15) as response:
-            raw = response.read()
-            return response.status, json.loads(raw) if raw else None
+            return response.status, decode_response(response)
     except urllib.error.HTTPError as error:
-        raw = error.read()
-        return error.code, json.loads(raw) if raw else None
+        return error.code, decode_response(error)
 
 def token(reader=False):
     body = urllib.parse.urlencode({'grant_type': 'client_credentials', 'client_id': 'reader-cli' if reader else 'orders-cli',
