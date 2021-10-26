@@ -79,4 +79,19 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(503, status); self.assertEqual('non_json_response', body['error'])
         self.assertNotIn('private proxy response', json.dumps(body))
 
+
+    def test_compose_has_deadline_and_recovery(self):
+        module = self.load('demo.py')
+        with patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'ok', '')) as execute:
+            self.assertEqual('ok', module.compose('ps'))
+            self.assertEqual(45, execute.call_args.kwargs.get('timeout'))
+        operations = []
+        def failed_stop(*args):
+            operations.append(args)
+            if args[0] == 'stop': raise RuntimeError('partial stop')
+        with patch.object(module, 'compose', side_effect=failed_stop):
+            with self.assertRaises(RuntimeError):
+                with module.stopped_services('broker'): self.fail('stop failed')
+        self.assertEqual([('stop', 'broker'), ('start', 'broker')], operations)
+
 # TESTS

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Authenticated synthetic end-to-end checks. --faults briefly stops this Compose project's services."""
 import argparse
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
@@ -59,10 +60,18 @@ def token(reader=False):
         return json.load(response)['access_token']
 
 def compose(*args):
-    result = subprocess.run(['docker', 'compose', *args], cwd=ROOT, capture_output=True, text=True)
+    result = subprocess.run(['docker', 'compose', *args], cwd=ROOT, capture_output=True, text=True, timeout=45)
     if result.returncode:
         raise RuntimeError(f'Compose {args[0]} failed: {result.stderr[-1500:]}')
     return result.stdout.strip()
+
+@contextmanager
+def stopped_services(*services):
+    try:
+        compose('stop', *services)
+        yield
+    finally:
+        compose('start', *services)
 
 def ledger():
     raw = compose('exec', '-T', 'redis', 'redis-cli', '--raw', 'HGET', 'orders-ledger-v1', 'data')
@@ -128,8 +137,7 @@ def run(faults):
     assert state['receipts'].count(order['eventId']) == 1
     passed('three broker duplicate deliveries retain one fulfillment receipt')
     if faults:
-        compose('stop', 'broker')
-        try:
+        with stopped_services('broker'):
             failed_key = 'outage-' + uuid.uuid4().hex
             status, pending = request('POST', API + '/orders', payload, bearer, failed_key)
             assert status == 202, (status, pending)
@@ -139,18 +147,13 @@ def run(faults):
             status, replay = request('POST', API + '/orders', payload, bearer, failed_key)
             assert status == 200 and replay['id'] == pending['id'], (status, replay)
             passed('broker outage leaves durable outbox across API restart')
-        finally:
-            compose('start', 'broker')
         until(lambda: fulfilled(bearer, pending['id']))
         until(lambda: pending['eventId'] not in ledger()['outbox'])
         passed('broker recovery drains outbox and fulfills pending order')
-        compose('stop', 'worker-dapr', 'worker')
-        try:
+        with stopped_services('worker-dapr', 'worker'):
             status, queued = request('POST', API + '/orders', payload, bearer, 'worker-' + uuid.uuid4().hex)
             assert status == 202
             until(lambda: queued['eventId'] not in ledger()['outbox'])
-        finally:
-            compose('start', 'worker', 'worker-dapr')
         until(lambda: fulfilled(bearer, queued['id']))
         passed('queued broker event survives worker downtime')
         compose('restart', 'redis')
