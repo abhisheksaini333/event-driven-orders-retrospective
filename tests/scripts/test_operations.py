@@ -94,4 +94,15 @@ class OperationsTests(unittest.TestCase):
                 with module.stopped_services('broker'): self.fail('stop failed')
         self.assertEqual([('stop', 'broker'), ('start', 'broker')], operations)
 
+
+    def test_broker_drain_requires_expected_group(self):
+        module = self.load('demo.py')
+        self.assertTrue(hasattr(module, 'broker_drained'))
+        for groups, expected in [([], False), ([{'name': 'other', 'pending': 0, 'lag': 0}], False),
+            ([{'name': 'orders-worker', 'pending': 0, 'lag': None}], False),
+            ([{'name': 'orders-worker', 'pending': 1, 'lag': 0}], False),
+            ([{'name': 'orders-worker', 'pending': 0, 'lag': 0}], True)]:
+            with patch.object(module, 'compose', return_value=json.dumps(groups)):
+                self.assertEqual(expected, module.broker_drained())
+
 # TESTS

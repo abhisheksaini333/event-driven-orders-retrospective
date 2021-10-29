@@ -90,6 +90,11 @@ def until(check, timeout=90):
         time.sleep(0.5)
     raise AssertionError(f'Timed out after {timeout}s; last result={last!r}')
 
+def broker_drained():
+    groups = json.loads(compose('exec', '-T', 'broker', 'redis-cli', '--json', 'XINFO', 'GROUPS', 'orders.accepted'))
+    matching = [group for group in groups if group.get('name') == 'orders-worker']
+    return len(matching) == 1 and matching[0].get('pending') == 0 and matching[0].get('lag') == 0
+
 def fulfilled(bearer, order_id):
     status, body = request('GET', API + '/orders/' + order_id, token=bearer)
     return status == 200 and body.get('status') == 'fulfilled'
@@ -132,7 +137,7 @@ def run(faults):
                 'datacontenttype': 'application/json', 'data': {'eventId': order['eventId'], 'orderId': order['id'], 'version': 1}}
     for _ in range(3):
         compose('exec', '-T', 'broker', 'redis-cli', 'XADD', 'orders.accepted', '*', 'data', json.dumps(envelope))
-    until(lambda: all(group['pending'] == 0 and group['lag'] == 0 for group in json.loads(compose('exec', '-T', 'broker', 'redis-cli', '--json', 'XINFO', 'GROUPS', 'orders.accepted'))))
+    until(broker_drained)
     state = ledger()
     assert state['receipts'].count(order['eventId']) == 1
     passed('three broker duplicate deliveries retain one fulfillment receipt')
