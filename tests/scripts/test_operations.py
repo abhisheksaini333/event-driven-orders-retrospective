@@ -105,4 +105,17 @@ class OperationsTests(unittest.TestCase):
             with patch.object(module, 'compose', return_value=json.dumps(groups)):
                 self.assertEqual(expected, module.broker_drained())
 
+
+    def test_demo_records_sanitized_partial_failure(self):
+        module = self.load('demo.py'); self.assertTrue(hasattr(module, 'main'))
+        secret = 'credential-value-that-must-stay-private'; (self.root / '.env').write_text('SECRET=' + secret + '\n')
+        output = self.root / 'evidence.json'
+        def fail(faults, checks):
+            checks.append('first check passed'); raise RuntimeError('failed with ' + secret)
+        captured = io.StringIO()
+        with patch.object(module, 'run', side_effect=fail), contextlib.redirect_stdout(captured):
+            self.assertEqual(1, module.main(['--output', str(output)]))
+        result = json.loads(output.read_text()); self.assertEqual('failed', result['status']); self.assertEqual(1, result['checks_passed'])
+        self.assertNotIn(secret, output.read_text() + captured.getvalue())
+
 # TESTS

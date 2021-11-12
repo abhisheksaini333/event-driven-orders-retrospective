@@ -99,8 +99,8 @@ def fulfilled(bearer, order_id):
     status, body = request('GET', API + '/orders/' + order_id, token=bearer)
     return status == 200 and body.get('status') == 'fulfilled'
 
-def run(faults):
-    checks = []
+def run(faults, checks=None):
+    checks = [] if checks is None else checks
     def passed(name):
         checks.append(name)
         print('PASS ' + name, flush=True)
@@ -169,11 +169,34 @@ def run(faults):
     print(json.dumps(result, indent=2))
     return result
 
-if __name__ == '__main__':
+def sanitized_error(error):
+    value = str(error)
+    try:
+        for secret in load_env().values():
+            if len(secret) >= 8:
+                value = value.replace(secret, '[redacted]')
+    except OSError:
+        pass
+    return value[:1000]
+
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--faults', action='store_true')
     parser.add_argument('--output', type=Path)
-    args = parser.parse_args()
-    result = run(args.faults)
+    args = parser.parse_args(argv)
+    checks = []; started = time.monotonic()
+    try:
+        result = run(args.faults, checks)
+        result['status'] = 'passed'; code = 0
+    except Exception as error:
+        result = {'recorded_at': datetime.now(timezone.utc).isoformat(), 'status': 'failed', 'fault_injection': args.faults,
+                  'checks_passed': len(checks), 'checks': checks, 'error_type': type(error).__name__, 'error': sanitized_error(error)}
+        code = 1
+    result['duration_seconds'] = round(time.monotonic() - started, 3)
     if args.output:
         args.output.write_text(json.dumps(result, indent=2) + '\n')
+    print(json.dumps(result, indent=2))
+    return code
+
+if __name__ == '__main__':
+    raise SystemExit(main())
