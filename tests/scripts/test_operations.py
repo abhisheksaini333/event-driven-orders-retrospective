@@ -118,4 +118,13 @@ class OperationsTests(unittest.TestCase):
         result = json.loads(output.read_text()); self.assertEqual('failed', result['status']); self.assertEqual(1, result['checks_passed'])
         self.assertNotIn(secret, output.read_text() + captured.getvalue())
 
+
+    def test_benchmark_keeps_setup_failure_evidence(self):
+        (self.root / '.env').write_text('ORDERS_CLIENT_SECRET=fixture-only\n')
+        output = self.root / 'benchmark.json'
+        result = self.cli('benchmark.py', '--requests', '1', '--concurrency', '1', '--output', str(output), env={'ORDERS_KEYCLOAK_URL': 'http://127.0.0.1:1'})
+        self.assertNotEqual(0, result.returncode)
+        self.assertTrue(output.exists(), result.stderr)
+        evidence = json.loads(output.read_text()); self.assertEqual('failed', evidence['status']); self.assertEqual('setup', evidence['phase'])
+
 # TESTS
