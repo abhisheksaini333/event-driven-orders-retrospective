@@ -31,19 +31,25 @@ def run_baseline(requests, concurrency):
         responses = list(pool.map(send, range(requests)))
     accept_seconds = time.perf_counter() - started
     accepted = [item for item in responses if item[0] == 202 and item[2] and item[3] is None]
-    completed = 0; completion_errors = []
-    for _, _, order_id, _, _ in accepted:
+    deadline = time.monotonic() + 120
+    def complete(item):
         try:
-            until(lambda: fulfilled(bearer, order_id), timeout=120)
-            completed += 1
+            until(lambda: fulfilled(bearer, item[2]), timeout=max(0, deadline - time.monotonic()))
+            return (time.perf_counter() - item[4]) * 1000, None
         except Exception as error:
-            completion_errors.append(type(error).__name__)
+            return None, type(error).__name__
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        completion = list(pool.map(complete, accepted))
+    completion_latencies = [value for value, error in completion if error is None]
+    completion_errors = [error for _, error in completion if error]
+    completed = len(completion_latencies)
     completion_seconds = time.perf_counter() - started
     latencies = [item[1] for item in responses]
     return {'recorded_at': datetime.now(timezone.utc).isoformat(), 'host': platform.platform(), 'concurrency': concurrency,
             'requests': requests, 'initial_ledger_orders': initial_orders, 'accepted': len(accepted), 'fulfilled': completed,
             'http_statuses': {str(code): sum(item[0] == code for item in responses) for code in sorted({item[0] for item in responses})},
             'request_errors': [item[3] for item in responses if item[3]], 'completion_errors': completion_errors,
+            'completion_latency_ms': {'p50': percentile(completion_latencies, .5), 'p95': percentile(completion_latencies, .95), 'max': round(max(completion_latencies), 2) if completion_latencies else None},
             'acceptance_seconds': round(accept_seconds, 3), 'acceptance_requests_per_second': round(requests / max(accept_seconds, 0.000001), 2),
             'http_latency_ms': {'p50': round(statistics.median(latencies), 2), 'p95': percentile(latencies, .95), 'max': round(max(latencies), 2)},
             'all_accepted_orders_observed_fulfilled_seconds': round(completion_seconds, 3) if completed == len(accepted) else None,

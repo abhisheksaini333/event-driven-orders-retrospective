@@ -127,4 +127,15 @@ class OperationsTests(unittest.TestCase):
         self.assertTrue(output.exists(), result.stderr)
         evidence = json.loads(output.read_text()); self.assertEqual('failed', evidence['status']); self.assertEqual('setup', evidence['phase'])
 
+
+    def test_benchmark_polls_completion_concurrently(self):
+        import threading
+        self.load('demo.py'); module = self.load('benchmark.py'); barrier = threading.Barrier(2, timeout=2)
+        def complete(*args): barrier.wait(); return True
+        def accepted(*args): return 202, {'id': __import__('uuid').uuid4().hex}
+        with patch.object(module, 'token', return_value='fixture'), patch.object(module, 'ledger', return_value={'orders': {}}), patch.object(module, 'request', side_effect=accepted), patch.object(module, 'fulfilled', side_effect=complete):
+            result = module.run_baseline(4, 2)
+        self.assertEqual(4, result['fulfilled']); self.assertEqual('passed', result['status'])
+        self.assertIsNotNone(result['completion_latency_ms']['p95'])
+
 # TESTS
