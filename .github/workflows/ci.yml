@@ -13,7 +13,9 @@ jobs:
           global-json-file: global.json
       - run: dotnet restore --locked-mode
       - run: dotnet test --no-restore --configuration Release --nologo
-      - run: dotnet list src/Orders/Orders.csproj package --vulnerable --include-transitive
+      - run: python3 -m unittest discover -s tests/scripts -v
+      - run: dotnet list src/Orders/Orders.csproj package --vulnerable --include-transitive --format json > dependency-audit.json
+      - run: python3 scripts/check-vulnerabilities.py --nuget dependency-audit.json
       - run: python3 scripts/init-local.py
       - run: docker compose config --quiet
       - run: docker compose up -d --build
@@ -23,6 +25,8 @@ jobs:
         if: always()
         with:
           name: runtime-evidence
-          path: '*-result.json'
+          path: |
+            *-result.json
+            dependency-audit.json
       - if: always()
         run: docker compose down

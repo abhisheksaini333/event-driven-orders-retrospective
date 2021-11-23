@@ -138,4 +138,14 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(4, result['fulfilled']); self.assertEqual('passed', result['status'])
         self.assertIsNotNone(result['completion_latency_ms']['p95'])
 
+
+    def test_nuget_gate_checks_severity_and_report_shape(self):
+        report = self.root / 'nuget.json'
+        report.write_text(json.dumps({'version': 1, 'projects': [{'path': 'app.csproj', 'frameworks': [{'transitivePackages': [{'id': 'dependency', 'vulnerabilities': [{'severity': 'High', 'advisoryurl': 'https://example.invalid/advisory'}]}]}]}]}))
+        self.assertEqual(1, self.cli('check-vulnerabilities.py', '--nuget', str(report)).returncode)
+        report.write_text(json.dumps({'version': 1, 'projects': [{'path': 'app.csproj'}]}))
+        self.assertEqual(0, self.cli('check-vulnerabilities.py', '--nuget', str(report)).returncode)
+        report.write_text('{}')
+        self.assertEqual(2, self.cli('check-vulnerabilities.py', '--nuget', str(report)).returncode)
+
 # TESTS
