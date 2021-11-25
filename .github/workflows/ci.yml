@@ -7,8 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           global-json-file: global.json
       - run: dotnet restore --locked-mode
@@ -21,7 +21,7 @@ jobs:
       - run: docker compose up -d --build
       - run: python3 scripts/demo.py --faults --output integration-result.json
       - run: python3 scripts/benchmark.py --requests 40 --concurrency 2 --output benchmark-result.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: runtime-evidence

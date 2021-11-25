@@ -148,4 +148,12 @@ class OperationsTests(unittest.TestCase):
         report.write_text('{}')
         self.assertEqual(2, self.cli('check-vulnerabilities.py', '--nuget', str(report)).returncode)
 
+
+    def test_ci_actions_use_immutable_revisions(self):
+        import re
+        text = (SOURCE.parent / '.github/workflows/ci.yml').read_text()
+        actions = re.findall(r'uses:\s+(\S+)', text)
+        self.assertGreaterEqual(len(actions), 3)
+        for action in actions: self.assertRegex(action, r'^[^@]+@[0-9a-f]{40}$')
+
 # TESTS
