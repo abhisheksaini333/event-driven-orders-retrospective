@@ -156,4 +156,13 @@ class OperationsTests(unittest.TestCase):
         self.assertGreaterEqual(len(actions), 3)
         for action in actions: self.assertRegex(action, r'^[^@]+@[0-9a-f]{40}$')
 
+
+    def test_runtime_images_use_recorded_digests(self):
+        import re
+        dockerfile = (SOURCE.parent / 'Dockerfile').read_text(); compose = (SOURCE.parent / 'compose.yaml').read_text()
+        images = re.findall(r'^FROM (\S+)', dockerfile, re.M) + re.findall(r'^\s+image:\s*(\S+)', compose, re.M)
+        remote = [image for image in images if not image.startswith('orders-retrospective:')]
+        self.assertGreaterEqual(len(remote), 5)
+        for image in remote: self.assertRegex(image, r'@sha256:[0-9a-f]{64}$')
+
 # TESTS

@@ -1,7 +1,7 @@
 name: event-driven-orders-retrospective
 services:
   redis:
-    image: redis:7.4.5-alpine
+    image: redis:7.4.5-alpine@sha256:bb186d083732f669da90be8b0f975a37812b15e913465bb14d845db72a4e3e08
     command: [redis-server, --appendonly, 'yes', --appendfsync, always]
     volumes: [redis-data:/data]
     healthcheck:
@@ -10,7 +10,7 @@ services:
       timeout: 2s
       retries: 20
   broker:
-    image: redis:7.4.5-alpine
+    image: redis:7.4.5-alpine@sha256:bb186d083732f669da90be8b0f975a37812b15e913465bb14d845db72a4e3e08
     command: [redis-server, --appendonly, 'yes', --appendfsync, always]
     volumes: [broker-data:/data]
     healthcheck:
@@ -19,7 +19,7 @@ services:
       timeout: 2s
       retries: 20
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.4
+    image: quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
     command: [start-dev, --import-realm]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: local-admin
@@ -46,7 +46,7 @@ services:
     ports: [127.0.0.1:4320:4320]
     depends_on: [redis, keycloak]
   api-dapr:
-    image: daprio/daprd:1.18.4
+    image: daprio/daprd:1.18.4@sha256:1e218523a15be5be5f36d64aa33a40cbde8fbe963ba6122d42d9c9de5b24a372
     command: [./daprd, --app-id, orders-api, --app-channel-address, api, --dapr-listen-addresses, 0.0.0.0, --app-port, '4320', --dapr-http-port, '3500', --resources-path, /components, --log-level, warn]
     environment:
       DAPR_API_TOKEN: ${DAPR_API_TOKEN:?Run scripts/init-local.py}
@@ -68,7 +68,7 @@ services:
     ports: [127.0.0.1:4321:4321]
     depends_on: [redis]
   worker-dapr:
-    image: daprio/daprd:1.18.4
+    image: daprio/daprd:1.18.4@sha256:1e218523a15be5be5f36d64aa33a40cbde8fbe963ba6122d42d9c9de5b24a372
     command: [./daprd, --app-id, orders-worker, --app-channel-address, worker, --dapr-listen-addresses, 0.0.0.0, --app-port, '4321', --dapr-http-port, '3500', --resources-path, /components, --log-level, warn]
     environment:
       APP_API_TOKEN: ${WORKER_CALLBACK_TOKEN:?Run scripts/init-local.py}
