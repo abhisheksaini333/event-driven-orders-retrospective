@@ -165,4 +165,13 @@ class OperationsTests(unittest.TestCase):
         self.assertGreaterEqual(len(remote), 5)
         for image in remote: self.assertRegex(image, r'@sha256:[0-9a-f]{64}$')
 
+
+    def test_trivy_gate_checks_severity_and_report_shape(self):
+        report = self.root / 'trivy.json'
+        report.write_text(json.dumps({'SchemaVersion': 2, 'Results': [{'Vulnerabilities': [{'PkgName': 'library', 'Severity': 'CRITICAL', 'VulnerabilityID': 'CVE-FIXTURE'}]}]}))
+        self.assertEqual(1, self.cli('check-vulnerabilities.py', '--trivy', str(report)).returncode)
+        report.write_text(json.dumps({'SchemaVersion': 2, 'Results': []}))
+        self.assertEqual(0, self.cli('check-vulnerabilities.py', '--trivy', str(report)).returncode)
+        report.write_text('{}'); self.assertEqual(2, self.cli('check-vulnerabilities.py', '--trivy', str(report)).returncode)
+
 # TESTS

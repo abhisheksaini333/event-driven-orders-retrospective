@@ -20,10 +20,23 @@ def nuget_findings(report):
                             findings.append({'package': package['id'], 'severity': severity, 'advisory': issue.get('advisoryurl', '')})
     return findings
 
+def trivy_findings(report):
+    if report.get('SchemaVersion') != 2 or not isinstance(report.get('Results'), list):
+        raise ValueError('Expected a version-2 Trivy report with results.')
+    findings = []
+    for result in report['Results']:
+        for issue in result.get('Vulnerabilities') or []:
+            severity = issue.get('Severity', '').lower()
+            if severity not in ('unknown', 'low', 'medium', 'high', 'critical'): raise ValueError('Unknown Trivy severity.')
+            if severity in ('high', 'critical'):
+                findings.append({'package': issue['PkgName'], 'severity': severity, 'advisory': issue['VulnerabilityID']})
+    return findings
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(); parser.add_argument('--nuget', required=True, type=Path); args = parser.parse_args(argv)
+    parser = argparse.ArgumentParser(); group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--nuget', type=Path); group.add_argument('--trivy', type=Path); args = parser.parse_args(argv)
     try:
-        findings = nuget_findings(json.loads(args.nuget.read_text()))
+        findings = nuget_findings(json.loads(args.nuget.read_text())) if args.nuget else trivy_findings(json.loads(args.trivy.read_text()))
     except (ValueError, KeyError, TypeError, OSError) as error:
         print(json.dumps({'status': 'invalid_report', 'error_type': type(error).__name__})); return 2
     print(json.dumps({'status': 'blocked' if findings else 'passed', 'findings': findings}, indent=2))
