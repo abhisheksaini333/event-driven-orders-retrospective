@@ -364,6 +364,53 @@ public class ApiContracts
         Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single()); Assert.True(response.Headers.CacheControl!.NoStore);
     }
 
+    private static void MatchesSchema(JsonElement value, JsonElement schema, JsonElement document)
+    {
+        if (schema.TryGetProperty("$ref", out var reference)) schema = document.GetProperty("components").GetProperty("schemas").GetProperty(reference.GetString()!.Split('/').Last());
+        if (value.ValueKind == JsonValueKind.Null && schema.TryGetProperty("nullable", out var nullable) && nullable.GetBoolean()) return;
+        if (schema.TryGetProperty("enum", out var choices)) Assert.Contains(choices.EnumerateArray(), choice => choice.ToString() == value.ToString());
+        if (!schema.TryGetProperty("type", out var type)) return;
+        switch (type.GetString())
+        {
+            case "object":
+                Assert.Equal(JsonValueKind.Object, value.ValueKind);
+                if (schema.TryGetProperty("required", out var required)) foreach (var name in required.EnumerateArray()) Assert.True(value.TryGetProperty(name.GetString()!, out _), "Missing " + name.GetString());
+                if (schema.TryGetProperty("properties", out var properties)) foreach (var property in value.EnumerateObject()) {
+                    if (properties.TryGetProperty(property.Name, out var nested)) MatchesSchema(property.Value, nested, document);
+                    else if (schema.TryGetProperty("additionalProperties", out var additional) && additional.ValueKind == JsonValueKind.False) Assert.Fail("Unknown response field " + property.Name);
+                }
+                break;
+            case "string":
+                Assert.Equal(JsonValueKind.String, value.ValueKind);
+                if (schema.TryGetProperty("minLength", out var length)) Assert.True(value.GetString()!.Length >= length.GetInt32());
+                if (schema.TryGetProperty("pattern", out var pattern)) Assert.Matches(pattern.GetString()!, value.GetString()!);
+                if (schema.TryGetProperty("format", out var format) && format.GetString() == "date-time") Assert.True(DateTimeOffset.TryParse(value.GetString(), out _));
+                break;
+            case "integer": Assert.True(value.TryGetInt64(out _)); break;
+            case "number": Assert.Equal(JsonValueKind.Number, value.ValueKind); break;
+            case "boolean": Assert.True(value.ValueKind is JsonValueKind.True or JsonValueKind.False); break;
+            case "array": Assert.Equal(JsonValueKind.Array, value.ValueKind); foreach (var item in value.EnumerateArray()) MatchesSchema(item, schema.GetProperty("items"), document); break;
+        }
+    }
+
+    [Fact] public async Task HttpResponsesConformToOpenApi()
+    {
+        using var factory = new OrdersFactory(); using var client = factory.CreateClient();
+        var source = factory.Services.GetRequiredService<IWebHostEnvironment>().ContentRootPath;
+        using var contract = JsonDocument.Parse(File.ReadAllText(Path.GetFullPath("../../docs/openapi.yaml", source)));
+        var document = contract.RootElement; var schemas = document.GetProperty("components").GetProperty("schemas");
+        using var accepted = await SendOrder(client, OrdersFactory.Token("orders_writer"));
+        MatchesSchema(await accepted.Content.ReadFromJsonAsync<JsonElement>(), schemas.GetProperty("Order"), document);
+        foreach (var quantity in new object[] { "1", true, new { value = 1 } }) {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/orders") { Content = JsonContent.Create(new { sku = "SKU-1", quantity }) };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_writer")); request.Headers.Add("Idempotency-Key", "type-contract");
+            using var response = await client.SendAsync(request); Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            MatchesSchema(await response.Content.ReadFromJsonAsync<JsonElement>(), schemas.GetProperty("Problem"), document);
+        }
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", OrdersFactory.Token("orders_operator"));
+        MatchesSchema(await client.GetFromJsonAsync<JsonElement>("/operations/dispatch"), schemas.GetProperty("DispatchStatus"), document);
+    }
+
 // TESTS
 }
 
