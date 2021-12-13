@@ -206,5 +206,18 @@ public class AdapterContracts
         Assert.DoesNotContain("private-response-detail", error.ToString());
     }
 
+
+    [Fact] public async Task NullStateReferencesAreDependencyFailures()
+    {
+        var store = new MemoryStore(); var engine = new OrdersEngine(store);
+        var order = (await engine.Submit("alice", "null-state-key", new("SKU-1", 1))).Order;
+        var ledger = (await store.Read(default)).Value;
+        foreach (var collection in new[] { "requests", "outbox" }) {
+            var node = JsonSerializer.SerializeToNode(ledger, WebJson)!.AsObject();
+            node[collection]!.AsObject().First().Value!["orderId"] = null;
+            await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(node.ToJsonString()).Read(default));
+        }
+    }
+
 // TESTS
 }

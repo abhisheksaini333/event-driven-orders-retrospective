@@ -59,8 +59,8 @@ def token(reader=False):
     with urllib.request.urlopen(req, timeout=10) as response:
         return json.load(response)['access_token']
 
-def compose(*args):
-    result = subprocess.run(['docker', 'compose', *args], cwd=ROOT, capture_output=True, text=True, timeout=45)
+def compose(*args, input=None):
+    result = subprocess.run(['docker', 'compose', *args], cwd=ROOT, capture_output=True, text=True, timeout=45, input=input)
     if result.returncode:
         raise RuntimeError(f'Compose {args[0]} failed: {result.stderr[-1500:]}')
     return result.stdout.strip()

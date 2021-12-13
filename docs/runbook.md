@@ -68,3 +68,12 @@ The `Orders.Core` meter reports submission outcomes, CAS contention, last-observ
 `GET /operations/dispatch` requires `orders_operator` and returns only enablement, pending count, oldest known age and schema version. It does not expose order IDs or owner identities. Fresh generated realms include an operator-cli client; an existing realm needs an explicit client migration before this role is usable.
 
 The manual container-security workflow scans the exact application and selected dependency images with [Trivy 0.74.0](https://github.com/aquasecurity/trivy/releases/tag/v0.74.0), retains JSON reports and blocks on high/critical findings. It does not silently upgrade the recorded runtime versions. A written workflow or parser fixture is not evidence of a clean live image scan.
+
+
+## Verified state snapshots
+
+`python3 scripts/ledger-snapshot.py export --output .local/orders-snapshot.json` reads one atomic Redis hash and writes a private, digest-checked snapshot without overwriting an existing file. Store the resulting file securely; it contains synthetic owner identifiers and orders.
+
+Restore requires this Compose project's API and worker to be stopped. `python3 scripts/ledger-snapshot.py restore --input .local/orders-snapshot.json --key orders-ledger-restore-check` validates the schema, references and digest, then atomically creates only an absent target key. It never overwrites existing state. New state starts with Redis version 1 and first-write protection; stopped writers avoid stale ETag reuse. Use the default key only in an intentionally empty recovery environment.
+
+This captures state, not the separate broker stream or Keycloak database. An accepted order whose event was already published needs retained broker data or a reviewed reconciliation procedure. A successful snapshot round trip does not establish disaster recovery for external side effects.

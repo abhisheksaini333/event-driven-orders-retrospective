@@ -174,4 +174,23 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(0, self.cli('check-vulnerabilities.py', '--trivy', str(report)).returncode)
         report.write_text('{}'); self.assertEqual(2, self.cli('check-vulnerabilities.py', '--trivy', str(report)).returncode)
 
+
+    def test_snapshot_integrity_and_non_overwriting_restore(self):
+        self.load('demo.py'); self.assertTrue((self.root / 'scripts/ledger-snapshot.py').exists())
+        module = self.load('ledger-snapshot.py')
+        ledger = {'schemaVersion': 1, 'orders': {}, 'requests': {}, 'outbox': {}, 'receipts': []}
+        with patch.object(module, 'compose', return_value=json.dumps(['data', json.dumps(ledger), 'version', '7', 'first-write', '0'])):
+            snapshot = module.capture(); self.assertEqual('7', snapshot['source_version']); module.verify(snapshot)
+        altered = dict(snapshot); altered['sha256'] = '0' * 64
+        with self.assertRaises(ValueError): module.verify(altered)
+        calls = []
+        def redis(*args, **kwargs):
+            calls.append((args, kwargs)); return '[]' if args[0] == 'ps' else '1'
+        with patch.object(module, 'compose', side_effect=redis): module.restore(snapshot, 'restore-fixture')
+        self.assertIn('EXISTS', calls[-1][0][-3]); self.assertEqual(ledger, json.loads(calls[-1][1]['input']))
+        with patch.object(module, 'compose', side_effect=['[]', '0']):
+            with self.assertRaises(FileExistsError): module.restore(snapshot, 'existing-fixture')
+        with patch.object(module, 'compose', return_value=json.dumps([{'State': 'running'}])):
+            with self.assertRaises(RuntimeError): module.restore(snapshot)
+
 # TESTS
