@@ -15,7 +15,7 @@ if (role is not ("api" or "worker")) throw new ArgumentException("Role must be a
 var worker = role == "worker";
 if (!bool.TryParse(builder.Configuration["DispatcherEnabled"] ?? "true", out var dispatcherEnabled))
     throw new ArgumentException("DispatcherEnabled must be true or false.");
-_ = DaprSettings.Load(builder.Configuration);
+var daprSettings = DaprSettings.Load(builder.Configuration);
 _ = RuntimeLimits.Load(builder.Configuration);
 builder.Services.AddSingleton<ILedgerStore, DaprLedgerStore>();
 builder.Services.AddSingleton<IEventPublisher, DaprPublisher>();
@@ -107,7 +107,7 @@ if (worker)
         }
         await next(context);
     });
-    app.MapGet("/dapr/subscribe", () => Results.Json(new[] { new { pubsubname = "orders-pubsub", topic = "orders.accepted", route = "/events/orders" } }));
+    app.MapGet("/dapr/subscribe", () => Results.Json(new[] { new { pubsubname = daprSettings.PubSub, topic = daprSettings.Topic, route = "/events/orders" } }));
     app.MapPost("/events/orders", async (JsonElement envelope, OrdersEngine engine, CancellationToken ct) =>
     {
         if (envelope.ValueKind != JsonValueKind.Object || !envelope.TryGetProperty("data", out var data)) return Results.Ok(new { status = "DROP" });

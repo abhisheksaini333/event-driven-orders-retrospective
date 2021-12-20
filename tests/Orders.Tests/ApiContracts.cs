@@ -411,6 +411,18 @@ public class ApiContracts
         MatchesSchema(await client.GetFromJsonAsync<JsonElement>("/operations/dispatch"), schemas.GetProperty("DispatchStatus"), document);
     }
 
+
+    [Fact] public async Task SubscriptionMatchesConfiguredPublisher()
+    {
+        using var factory = new OrdersFactory();
+        using var configured = factory.WithWebHostBuilder(builder => builder.UseSetting("Role", "worker").UseSetting("APP_API_TOKEN", "callback-test-token").UseSetting("Dapr:PubSub", "custom-pubsub").UseSetting("Dapr:Topic", "custom.accepted"));
+        using var client = configured.CreateClient(); client.DefaultRequestHeaders.Add("dapr-api-token", "callback-test-token");
+        var subscriptions = await client.GetFromJsonAsync<JsonElement>("/dapr/subscribe");
+        Assert.Equal("custom-pubsub", subscriptions[0].GetProperty("pubsubname").GetString());
+        Assert.Equal("custom.accepted", subscriptions[0].GetProperty("topic").GetString());
+        Assert.Equal("/events/orders", subscriptions[0].GetProperty("route").GetString());
+    }
+
 // TESTS
 }
 
