@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export validated state snapshots and restore only into an absent local ledger key."""
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 import os
@@ -13,6 +13,18 @@ MAXIMUM_BYTES = 16 * 1024 * 1024
 IDENTIFIER = re.compile(r'[a-f0-9]{32}')
 DIGEST = re.compile(r'[A-Fa-f0-9]{64}')
 
+def validate_timestamp(value):
+    if value is None: return
+    if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})', value):
+        raise ValueError('Invalid order timestamp.')
+    try:
+        if value[-1] != 'Z' and int(value[-2:]) > 59: raise ValueError('Invalid offset minute.')
+        parsed = datetime.fromisoformat(value)
+        if abs(parsed.utcoffset()) > timedelta(hours=14): raise ValueError('Invalid timestamp offset.')
+        parsed.astimezone(timezone.utc)  # DateTimeOffset also requires the UTC instant to fit years 1..9999.
+    except (ValueError, OverflowError) as error:
+        raise ValueError('Invalid order timestamp.') from error
+
 def validate_ledger(ledger):
     if not isinstance(ledger, dict) or type(ledger.get('schemaVersion', 1)) is not int or ledger.get('schemaVersion', 1) != 1:
         raise ValueError('Unsupported ledger schema.')
@@ -23,6 +35,7 @@ def validate_ledger(ledger):
     for key, order in orders.items():
         if not isinstance(order, dict) or not IDENTIFIER.fullmatch(key) or order.get('id') != key:
             raise ValueError('Invalid order identifier.')
+        for field in ('acceptedAt', 'fulfilledAt'): validate_timestamp(order.get(field))
         event = order.get('eventId'); owner = order.get('owner'); sku = order.get('sku'); quantity = order.get('quantity')
         if not isinstance(event, str) or not IDENTIFIER.fullmatch(event) or event in events:
             raise ValueError('Invalid order event.')
@@ -37,10 +50,10 @@ def validate_ledger(ledger):
     if any(not isinstance(item, str) or item not in events for item in receipts) or len(receipts) != len(set(receipts)):
         raise ValueError('Invalid or duplicate receipt.')
     for key, request in ledger['requests'].items():
-        if not isinstance(request, dict) or not DIGEST.fullmatch(key) or request.get('orderId') not in orders or not isinstance(request.get('fingerprint'), str) or not DIGEST.fullmatch(request['fingerprint']) or request.get('version', 1) != 1:
+        if not isinstance(request, dict) or not DIGEST.fullmatch(key) or request.get('orderId') not in orders or not isinstance(request.get('fingerprint'), str) or not DIGEST.fullmatch(request['fingerprint']) or type(request.get('version', 1)) is not int or request.get('version', 1) != 1:
             raise ValueError('Invalid idempotency reference.')
     for key, event in ledger['outbox'].items():
-        if not isinstance(event, dict) or event.get('eventId') != key or event.get('orderId') not in orders or event.get('version') != 1 or orders[event['orderId']]['eventId'] != key:
+        if not isinstance(event, dict) or event.get('eventId') != key or event.get('orderId') not in orders or type(event.get('version')) is not int or event.get('version') != 1 or orders[event['orderId']]['eventId'] != key:
             raise ValueError('Invalid outbox reference.')
     return ledger
 
@@ -66,7 +79,7 @@ def capture(key='orders-ledger-v1'):
             'source_version': str(fields['version']), 'ledger': ledger, 'sha256': hashlib.sha256(encoded.encode()).hexdigest()}
 
 def verify(snapshot):
-    if not isinstance(snapshot, dict) or snapshot.get('format') != 1: raise ValueError('Unsupported snapshot format.')
+    if not isinstance(snapshot, dict) or type(snapshot.get('format')) is not int or snapshot.get('format') != 1: raise ValueError('Unsupported snapshot format.')
     ledger = validate_ledger(snapshot.get('ledger')); encoded = canonical(ledger)
     if len(encoded.encode()) > MAXIMUM_BYTES: raise ValueError('Snapshot exceeds size limit.')
     if hashlib.sha256(encoded.encode()).hexdigest() != snapshot.get('sha256'): raise ValueError('Snapshot digest mismatch.')

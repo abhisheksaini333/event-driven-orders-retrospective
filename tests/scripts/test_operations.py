@@ -193,4 +193,31 @@ class OperationsTests(unittest.TestCase):
         with patch.object(module, 'compose', return_value=json.dumps([{'State': 'running'}])):
             with self.assertRaises(RuntimeError): module.restore(snapshot)
 
+
+    def test_snapshot_rejects_runtime_incompatible_dates_and_versions(self):
+        import hashlib
+        import copy
+        self.load('demo.py'); module = self.load('ledger-snapshot.py')
+        order_id, event_id = '1' * 32, '2' * 32
+        ledger = {'schemaVersion': 1, 'orders': {order_id: {'id': order_id, 'eventId': event_id, 'owner': 'review', 'sku': 'SKU', 'quantity': 1, 'status': 'accepted'}},
+                  'requests': {'a' * 64: {'fingerprint': 'b' * 64, 'orderId': order_id, 'version': 1}},
+                  'outbox': {event_id: {'eventId': event_id, 'orderId': order_id, 'version': 1}}, 'receipts': []}
+        def snapshot(value):
+            return {'format': 1, 'ledger': value, 'sha256': hashlib.sha256(module.canonical(value).encode()).hexdigest()}
+        for value in [None, '2026-09-29T01:02:03Z', '2026-09-29T01:02:03.1234567+05:30']:
+            valid = copy.deepcopy(ledger); valid['orders'][order_id]['acceptedAt'] = value
+            module.verify(snapshot(valid))
+        invalid = []
+        for field in ('acceptedAt', 'fulfilledAt'):
+            for value in ['yesterday', True, 123, '2026-02-30T01:02:03Z', '2026-09-29T01:02:03', '2026-09-29T01:02:03+14:01', '2026-09-29T01:02:03+00:60', '2026-09-29T01:02:03-00:99', '0001-01-01T00:00:00+01:00']:
+                candidate = copy.deepcopy(ledger); candidate['orders'][order_id][field] = value; invalid.append(snapshot(candidate))
+        for collection in ('requests', 'outbox'):
+            for version in [True, 1.0, '1']:
+                candidate = copy.deepcopy(ledger); next(iter(candidate[collection].values()))['version'] = version; invalid.append(snapshot(candidate))
+        candidate = snapshot(ledger); candidate['format'] = True; invalid.append(candidate)
+        for candidate in invalid:
+            with self.subTest(candidate=candidate), patch.object(module, 'compose') as command:
+                with self.assertRaises(ValueError): module.restore(candidate, 'invalid-snapshot')
+                command.assert_not_called()
+
 # TESTS

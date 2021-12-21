@@ -77,3 +77,5 @@ The manual container-security workflow scans the exact application and selected 
 Restore requires this Compose project's API and worker to be stopped. `python3 scripts/ledger-snapshot.py restore --input .local/orders-snapshot.json --key orders-ledger-restore-check` validates the schema, references and digest, then atomically creates only an absent target key. It never overwrites existing state. New state starts with Redis version 1 and first-write protection; stopped writers avoid stale ETag reuse. Use the default key only in an intentionally empty recovery environment.
 
 This captures state, not the separate broker stream or Keycloak database. An accepted order whose event was already published needs retained broker data or a reviewed reconciliation procedure. A successful snapshot round trip does not establish disaster recovery for external side effects.
+
+Snapshot dates must be nullable ISO timestamps with a timezone and supported calendar/offset range. Numeric schema/event/request versions require JSON integers; booleans are rejected before any Redis operation.
