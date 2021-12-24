@@ -13,14 +13,18 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     public async Task<Snapshot> Read(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        using var response = await ReadResponse(ct);
+        using var client = clients.CreateClient("dapr");
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (client.Timeout != Timeout.InfiniteTimeSpan) deadline.CancelAfter(client.Timeout);
+        var readToken = deadline.Token;
+        using var response = await ReadResponse(client, readToken);
         DaprOperationException.EnsureSuccess(response, "read");
         if (response.StatusCode == HttpStatusCode.NoContent) return new(new Ledger(), "0");
         if (response.StatusCode != HttpStatusCode.OK) throw new HttpRequestException("Unexpected state read response status", null, response.StatusCode);
         Ledger ledger;
         try
         {
-            var document = JsonSerializer.Deserialize<JsonElement>(await ReadBounded(response.Content, ct));
+            var document = JsonSerializer.Deserialize<JsonElement>(await ReadBounded(response.Content, readToken));
             if (document.ValueKind != JsonValueKind.Object || new[] { "orders", "requests", "outbox", "receipts" }.Any(name => !document.TryGetProperty(name, out _)))
                 throw new HttpRequestException("State response is missing required ledger collections");
             ledger = document.Deserialize<Ledger>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new HttpRequestException("Invalid state response");
@@ -39,11 +43,11 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
             throw new HttpRequestException("State ETag is invalid");
         return new(ledger, etag);
     }
-    private async Task<HttpResponseMessage> ReadResponse(CancellationToken ct)
+    private async Task<HttpResponseMessage> ReadResponse(HttpClient client, CancellationToken ct)
     {
         for (var attempt = 0; ; attempt++)
         {
-            var response = await clients.CreateClient("dapr").GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
+            var response = await client.GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
             if (attempt + 1 >= limits.ReadAttempts || response.StatusCode is not (HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)) return response;
             var advised = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow);
             var delay = advised is { } value ? TimeSpan.FromMilliseconds(Math.Clamp(value.TotalMilliseconds, 0, limits.MaximumReadDelayMs)) : TimeSpan.FromMilliseconds(20 * (1 << attempt));

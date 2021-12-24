@@ -79,3 +79,5 @@ Restore requires this Compose project's API and worker to be stopped. `python3 s
 This captures state, not the separate broker stream or Keycloak database. An accepted order whose event was already published needs retained broker data or a reviewed reconciliation procedure. A successful snapshot round trip does not establish disaster recovery for external side effects.
 
 Snapshot dates must be nullable ISO timestamps with a timezone and supported calendar/offset range. Numeric schema/event/request versions require JSON integers; booleans are rejected before any Redis operation.
+
+State reads use one linked deadline across response headers, retry delays and bounded body streaming. The configured named HTTP client timeout (five seconds by default) and caller cancellation both stop incomplete body reads.

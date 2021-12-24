@@ -219,5 +219,33 @@ public class AdapterContracts
         }
     }
 
+
+    private sealed class FixedClients(HttpClient client) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => client;
+    }
+    [Fact] public async Task StateBodyStreamingHonorsHttpClientTimeout()
+    {
+        using var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0); listener.Start();
+        using var watchdog = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        var responder = Task.Run(async () => {
+            try {
+                using var socket = await listener.AcceptTcpClientAsync(watchdog.Token);
+                await using var stream = socket.GetStream();
+                using var reader = new StreamReader(stream, System.Text.Encoding.ASCII, false, 1024, leaveOpen: true);
+                while (await reader.ReadLineAsync(watchdog.Token) is { Length: > 0 }) { }
+                var headers = System.Text.Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: 100\r\nETag: 1\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n");
+                await stream.WriteAsync(headers, watchdog.Token); await stream.FlushAsync(watchdog.Token);
+                await Task.Delay(Timeout.InfiniteTimeSpan, watchdog.Token);
+            } catch (OperationCanceledException) { }
+        });
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}"), Timeout = TimeSpan.FromMilliseconds(200) };
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        try {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new DaprLedgerStore(new FixedClients(client)).Read(watchdog.Token));
+            Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(1.5), $"Body read exceeded HTTP deadline: {elapsed.Elapsed}");
+        } finally { watchdog.Cancel(); await responder; }
+    }
+
 // TESTS
 }
