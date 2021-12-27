@@ -50,7 +50,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
             var response = await client.GetAsync(StatePath + "/" + Key + "?consistency=strong", HttpCompletionOption.ResponseHeadersRead, ct);
             if (attempt + 1 >= limits.ReadAttempts || response.StatusCode is not (HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)) return response;
             var advised = response.Headers.RetryAfter?.Delta ?? (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow);
-            var delay = advised is { } value ? TimeSpan.FromMilliseconds(Math.Clamp(value.TotalMilliseconds, 0, limits.MaximumReadDelayMs)) : TimeSpan.FromMilliseconds(20 * (1 << attempt));
+            var delay = advised is { } value ? TimeSpan.FromMilliseconds(Math.Clamp(value.TotalMilliseconds, 0, limits.MaximumReadDelayMs)) : TimeSpan.FromMilliseconds(Math.Min(limits.MaximumReadDelayMs, 20 * (1 << attempt)));
             response.Dispose();
             await Task.Delay(delay, ct);
         }

@@ -247,5 +247,19 @@ public class AdapterContracts
         } finally { watchdog.Cancel(); await responder; }
     }
 
+
+    [Fact] public async Task FallbackReadDelayRespectsConfiguredCap()
+    {
+        var calls = 0;
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+            ["Limits:ReadAttempts"] = "8", ["Limits:MaximumReadDelayMs"] = "0"
+        }).Build();
+        var store = new DaprLedgerStore(new StubClients(new StubHandler(_ => new HttpResponseMessage(++calls < 8 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.NoContent))), configuration);
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Equal("0", (await store.Read(default)).ETag);
+        Assert.Equal(8, calls);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(1), $"Zero configured delay still backed off: {elapsed.Elapsed}");
+    }
+
 // TESTS
 }
