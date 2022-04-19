@@ -8,7 +8,7 @@ public static class LedgerIntegrity
         {
             var order = pair.Value;
             if (order is null || pair.Key != order.Id || !Guid.TryParseExact(order.Id, "N", out _) || !Guid.TryParseExact(order.EventId, "N", out _) ||
-                string.IsNullOrWhiteSpace(order.Owner) || order.Quantity is < 1 or > 1000 || order.Status is not ("accepted" or "fulfilled") || !events.Add(order.EventId))
+                string.IsNullOrWhiteSpace(order.Owner) || order.Owner.Length > 256 || order.Owner.Any(char.IsControl) || order.Sku is null || !System.Text.RegularExpressions.Regex.IsMatch(order.Sku, @"\A[A-Z0-9-]{1,32}\z") || order.Quantity is < 1 or > 1000 || order.Status is not ("accepted" or "fulfilled") || !events.Add(order.EventId))
                 throw new HttpRequestException("Ledger contains an invalid order");
             if ((order.Status == "fulfilled") != ledger.Receipts.Contains(order.EventId)) throw new HttpRequestException("Ledger fulfillment receipt is inconsistent");
         }
