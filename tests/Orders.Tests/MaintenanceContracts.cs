@@ -32,3 +32,15 @@ public partial class MaintenanceContracts
         { var ledger = ValidLedger(); ledger.Orders[order.Id] = order; Assert.Throws<HttpRequestException>(() => LedgerIntegrity.Validate(ledger)); }
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public void PersistedReplayRecordsRequireVersionedHashes()
+    {
+        var ledger = ValidLedger(); var id = ledger.Orders.Keys.Single();
+        ledger.Requests["bad"] = new("bad", id);
+        Assert.Throws<HttpRequestException>(() => LedgerIntegrity.Validate(ledger));
+        ledger.Requests.Clear(); ledger.Requests[new string('A',64)] = new(new string('B',64), id, 2);
+        Assert.Throws<HttpRequestException>(() => LedgerIntegrity.Validate(ledger));
+    }
+}

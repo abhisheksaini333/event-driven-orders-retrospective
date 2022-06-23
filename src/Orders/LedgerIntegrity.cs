@@ -12,7 +12,7 @@ public static class LedgerIntegrity
                 throw new HttpRequestException("Ledger contains an invalid order");
             if ((order.Status == "fulfilled") != ledger.Receipts.Contains(order.EventId)) throw new HttpRequestException("Ledger fulfillment receipt is inconsistent");
         }
-        if (ledger.Requests.Any(pair => pair.Value is null || string.IsNullOrEmpty(pair.Value.OrderId) || !ledger.Orders.ContainsKey(pair.Value.OrderId)))
+        if (ledger.Requests.Any(pair => pair.Value is null || pair.Value.Version != 1 || !System.Text.RegularExpressions.Regex.IsMatch(pair.Key, @"\A[A-Fa-f0-9]{64}\z") || pair.Value.Fingerprint is null || !System.Text.RegularExpressions.Regex.IsMatch(pair.Value.Fingerprint, @"\A[A-Fa-f0-9]{64}\z") || string.IsNullOrEmpty(pair.Value.OrderId) || !ledger.Orders.ContainsKey(pair.Value.OrderId)))
             throw new HttpRequestException("Ledger request references a missing order");
         foreach (var pair in ledger.Outbox)
         {
