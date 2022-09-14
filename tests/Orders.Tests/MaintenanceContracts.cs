@@ -44,3 +44,15 @@ public partial class MaintenanceContracts
         Assert.Throws<HttpRequestException>(() => LedgerIntegrity.Validate(ledger));
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public void PersistedLifecycleTimesMustBeConsistent()
+    {
+        var ledger = ValidLedger(); var order = ledger.Orders.Values.Single();
+        ledger.Orders[order.Id] = order with { FulfilledAt = order.AcceptedAt };
+        Assert.Throws<HttpRequestException>(() => LedgerIntegrity.Validate(ledger));
+        ledger.Orders[order.Id] = order with { Status = "fulfilled", FulfilledAt = order.AcceptedAt!.Value.AddSeconds(-1) }; ledger.Receipts.Add(order.EventId);
+        Assert.Throws<HttpRequestException>(() => LedgerIntegrity.Validate(ledger));
+    }
+}
