@@ -10,6 +10,20 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     private readonly DaprSettings settings = DaprSettings.Load(configuration);
     private string StatePath => "/v1.0/state/" + settings.StateStore;
     private string Key => settings.StateKey;
+    private static void ValidateJsonKeys(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in value.EnumerateObject())
+            {
+                if (!names.Add(property.Name)) throw new HttpRequestException("State JSON has duplicate keys");
+                ValidateJsonKeys(property.Value);
+            }
+        }
+        else if (value.ValueKind == JsonValueKind.Array)
+            foreach (var item in value.EnumerateArray()) ValidateJsonKeys(item);
+    }
     public async Task<Snapshot> Read(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -25,6 +39,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
         try
         {
             var document = JsonSerializer.Deserialize<JsonElement>(await ReadBounded(response.Content, readToken));
+            ValidateJsonKeys(document);
             if (document.ValueKind != JsonValueKind.Object || new[] { "orders", "requests", "outbox", "receipts" }.Any(name => !document.TryGetProperty(name, out _)))
                 throw new HttpRequestException("State response is missing required ledger collections");
             ledger = document.Deserialize<Ledger>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new HttpRequestException("Invalid state response");

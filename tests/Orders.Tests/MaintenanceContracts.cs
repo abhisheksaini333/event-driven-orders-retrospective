@@ -56,3 +56,12 @@ public partial class MaintenanceContracts
         Assert.Throws<HttpRequestException>(() => LedgerIntegrity.Validate(ledger));
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task StateReadsRejectDuplicateJsonKeys()
+    {
+        var json = "{\"orders\":{},\"orders\":{},\"requests\":{},\"outbox\":{},\"receipts\":[]}";
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(json).Read(default));
+    }
+}
