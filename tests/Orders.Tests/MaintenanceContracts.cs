@@ -65,3 +65,14 @@ public partial class MaintenanceContracts
         await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(json).Read(default));
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task StateReadsRejectDuplicateReceiptEntries()
+    {
+        var ledger = ValidLedger(); var order = ledger.Orders.Values.Single(); ledger.Orders[order.Id] = order with {Status="fulfilled"}; ledger.Receipts.Add(order.EventId);
+        var json = JsonSerializer.Serialize(ledger, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        json = json.Replace("\"receipts\":[\""+order.EventId+"\"]", "\"receipts\":[\""+order.EventId+"\",\""+order.EventId+"\"]");
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(json).Read(default));
+    }
+}

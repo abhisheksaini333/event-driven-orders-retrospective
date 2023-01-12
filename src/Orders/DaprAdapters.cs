@@ -42,6 +42,9 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
             ValidateJsonKeys(document);
             if (document.ValueKind != JsonValueKind.Object || new[] { "orders", "requests", "outbox", "receipts" }.Any(name => !document.TryGetProperty(name, out _)))
                 throw new HttpRequestException("State response is missing required ledger collections");
+            var receipts = document.GetProperty("receipts");
+            if (receipts.ValueKind == JsonValueKind.Array && receipts.EnumerateArray().Select(item => item.GetRawText()).Distinct().Count() != receipts.GetArrayLength())
+                throw new HttpRequestException("State JSON has duplicate receipts");
             ledger = document.Deserialize<Ledger>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new HttpRequestException("Invalid state response");
         }
         catch (JsonException exception) { throw new HttpRequestException("Invalid state JSON", exception); }
