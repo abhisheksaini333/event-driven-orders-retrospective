@@ -76,3 +76,12 @@ public partial class MaintenanceContracts
         await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(json).Read(default));
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task StateWritesRejectInvalidLedgersBeforeDispatch()
+    {
+        var calls=0; var store=new DaprLedgerStore(new StubClients(new StubHandler(_=>{calls++;return new(HttpStatusCode.NoContent);}))); var ledger=ValidLedger(); var order=ledger.Orders.Values.Single(); ledger.Orders[order.Id]=order with {Quantity=0};
+        await Assert.ThrowsAnyAsync<HttpRequestException>(()=>store.CompareExchange(ledger,"1",default)); Assert.Equal(0,calls);
+    }
+}

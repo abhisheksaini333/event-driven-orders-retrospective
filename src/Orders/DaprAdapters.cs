@@ -90,6 +90,9 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     public async Task<bool> CompareExchange(Ledger ledger, string etag, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        if (ledger is null || ledger.SchemaVersion != 1 || ledger.Orders is null || ledger.Requests is null || ledger.Outbox is null || ledger.Receipts is null)
+            throw new HttpRequestException("Invalid ledger for state write");
+        LedgerIntegrity.Validate(ledger);
         var payload = JsonSerializer.SerializeToUtf8Bytes(new[] {
             new { key = Key, value = ledger, etag, options = new { concurrency = "first-write", consistency = "strong" } }
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
