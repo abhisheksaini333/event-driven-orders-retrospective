@@ -59,7 +59,7 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
         var raw = values[0]; var etag = raw.Trim('"');
         if ((raw != etag && raw != "\"" + etag + "\"") || !long.TryParse(etag, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var version) || version <= 0)
             throw new HttpRequestException("State ETag is invalid");
-        return new(ledger, etag);
+        return new(ledger, version.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
     private async Task<HttpResponseMessage> ReadResponse(HttpClient client, CancellationToken ct)
     {
@@ -90,6 +90,8 @@ public sealed class DaprLedgerStore(IHttpClientFactory clients, IConfiguration? 
     public async Task<bool> CompareExchange(Ledger ledger, string etag, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        if (etag is null || !long.TryParse(etag, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var version) || version < 0 || etag != version.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            throw new HttpRequestException("State write ETag is invalid");
         if (ledger is null || ledger.SchemaVersion != 1 || ledger.Orders is null || ledger.Requests is null || ledger.Outbox is null || ledger.Receipts is null)
             throw new HttpRequestException("Invalid ledger for state write");
         LedgerIntegrity.Validate(ledger);

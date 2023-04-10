@@ -85,3 +85,13 @@ public partial class MaintenanceContracts
         await Assert.ThrowsAnyAsync<HttpRequestException>(()=>store.CompareExchange(ledger,"1",default)); Assert.Equal(0,calls);
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task ConditionalWritesRequireCanonicalVersionTokens()
+    {
+        var calls=0;var store=new DaprLedgerStore(new StubClients(new StubHandler(_=>{calls++;return new(HttpStatusCode.NoContent);})));
+        foreach(var token in new[]{"","01","-1","1,2","9223372036854775808"}) await Assert.ThrowsAnyAsync<HttpRequestException>(()=>store.CompareExchange(new Ledger(),token,default));
+        Assert.Equal(0,calls); Assert.True(await store.CompareExchange(new Ledger(),"0",default));
+    }
+}
