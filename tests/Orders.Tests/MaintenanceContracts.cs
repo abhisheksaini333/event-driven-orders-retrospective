@@ -95,3 +95,12 @@ public partial class MaintenanceContracts
         Assert.Equal(0,calls); Assert.True(await store.CompareExchange(new Ledger(),"0",default));
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task MalformedEventsAreDroppedWithoutStateReads()
+    {
+        var engine=new OrdersEngine(new NoReads());
+        Assert.Equal("DROP",await engine.Process(null!)); Assert.Equal("DROP",await engine.Process(new("bad","bad")));
+    }
+}

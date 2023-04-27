@@ -70,6 +70,8 @@ public sealed class OrdersEngine(ILedgerStore store, IConfiguration? configurati
     public async Task<string> Process(OrderEvent message, CancellationToken ct = default)
     {
         using var activity = OrdersTelemetry.Activities.StartActivity("orders.process");
+        ct.ThrowIfCancellationRequested();
+        if (message is null || message.Version != 1 || !Guid.TryParseExact(message.EventId, "N", out _) || !Guid.TryParseExact(message.OrderId, "N", out _)) return "DROP";
         var result = await Mutate(ledger =>
         {
             if (message.Version != 1 || !Guid.TryParseExact(message.EventId, "N", out _) || !Guid.TryParseExact(message.OrderId, "N", out _) ||
