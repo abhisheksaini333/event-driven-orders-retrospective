@@ -104,3 +104,14 @@ public partial class MaintenanceContracts
         Assert.Equal("DROP",await engine.Process(null!)); Assert.Equal("DROP",await engine.Process(new("bad","bad")));
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task InvalidReadOwnersAndCancellationAvoidStorage()
+    {
+        var engine=new OrdersEngine(new NoReads());var id=new string('a',32);
+        Assert.Null(await engine.Get("",id));Assert.Null(await engine.Get("a\u0001",id));
+        using var cancellation=new CancellationTokenSource();cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>engine.Get("alice","bad",cancellation.Token));
+    }
+}
