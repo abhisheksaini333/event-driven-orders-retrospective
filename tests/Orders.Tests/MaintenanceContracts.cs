@@ -115,3 +115,12 @@ public partial class MaintenanceContracts
         await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>engine.Get("alice","bad",cancellation.Token));
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task PublisherRejectsMalformedEventsBeforeNetwork()
+    {
+        var calls=0;var publisher=new DaprPublisher(new StubClients(new StubHandler(_=>{calls++;return new(HttpStatusCode.NoContent);})));
+        await Assert.ThrowsAnyAsync<ArgumentException>(()=>publisher.Publish(new("bad","bad"),default)); Assert.Equal(0,calls);
+    }
+}

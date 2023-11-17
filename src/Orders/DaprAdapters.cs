@@ -112,6 +112,8 @@ public sealed class DaprPublisher(IHttpClientFactory clients, IConfiguration? co
     public async Task Publish(OrderEvent message, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
+        if (message is null || message.Version != 1 || !Guid.TryParseExact(message.EventId, "N", out _) || !Guid.TryParseExact(message.OrderId, "N", out _))
+            throw new ArgumentException("Publisher event identifiers and version are invalid.");
         using var activity = OrdersTelemetry.Activities.StartActivity("orders.publish");
         using var response = await clients.CreateClient("dapr").PostAsJsonAsync("/v1.0/publish/" + settings.PubSub + "/" + settings.Topic, message, ct);
         DaprOperationException.EnsureSuccess(response, "publish");

@@ -103,7 +103,7 @@ public class AdapterContracts
         var store = (DaprLedgerStore)constructor.Invoke(new object[] { clients, configuration });
         await store.Read(default);
         var publisherConstructor = typeof(DaprPublisher).GetConstructors().Single(c => c.GetParameters().Length == 2);
-        await ((DaprPublisher)publisherConstructor.Invoke(new object[] { clients, configuration })).Publish(new("event", "order"), default);
+        await ((DaprPublisher)publisherConstructor.Invoke(new object[] { clients, configuration })).Publish(new(new string('a',32), new string('b',32)), default);
         Assert.Equal(new[] { "/v1.0/state/alternate-state/alternate-ledger", "/v1.0/publish/alternate-bus/orders.v2" }, paths);
         configuration["Dapr:StateStore"] = "unsafe/path";
         var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => constructor.Invoke(new object[] { clients, configuration }));
@@ -198,7 +198,7 @@ public class AdapterContracts
     [Fact] public async Task DependencyFailuresHaveSafeOperationMetadata()
     {
         var publisher = new DaprPublisher(new StubClients(new StubHandler(_ => new(HttpStatusCode.Forbidden) { Content = new StringContent("private-response-detail") })));
-        var error = await Assert.ThrowsAnyAsync<HttpRequestException>(() => publisher.Publish(new("event", "order"), default));
+        var error = await Assert.ThrowsAnyAsync<HttpRequestException>(() => publisher.Publish(new(new string('a',32), new string('b',32)), default));
         Assert.Equal("DaprOperationException", error.GetType().Name);
         Assert.Equal(HttpStatusCode.Forbidden, error.StatusCode);
         Assert.Equal("publish", error.GetType().GetProperty("Operation")!.GetValue(error));
