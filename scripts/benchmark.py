@@ -4,6 +4,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
+import math
 from pathlib import Path
 import platform
 import statistics
@@ -12,7 +13,7 @@ import uuid
 from demo import API, fulfilled, ledger, request, token, until
 
 def percentile(values, fraction):
-    return round(sorted(values)[max(0, int(len(values) * fraction) - 1)], 2) if values else None
+    return round(sorted(values)[max(0, math.ceil(len(values) * fraction) - 1)], 2) if values else None
 
 def run_baseline(requests, concurrency):
     bearer = token(); initial_orders = len(ledger()['orders']); prefix = 'bench-' + uuid.uuid4().hex
