@@ -23,3 +23,8 @@ class MaintenanceTests(unittest.TestCase):
         module=self.load('benchmark.py')
         self.assertEqual(module.percentile(list(range(1,9)),.95),8)
         self.assertEqual(module.percentile([1,2,3],.5),2)
+
+    def test_percentile_rejects_invalid_observations_and_fractions(self):
+        module=self.load('benchmark.py')
+        for values,fraction in (([float('nan')],.5),([-1],.5),([1],True),([1],1.1)):
+            with self.assertRaises(ValueError):module.percentile(values,fraction)

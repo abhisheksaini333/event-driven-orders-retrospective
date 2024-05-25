@@ -13,6 +13,8 @@ import uuid
 from demo import API, fulfilled, ledger, request, token, until
 
 def percentile(values, fraction):
+    if type(fraction) not in (int,float) or not math.isfinite(fraction) or not 0 <= fraction <= 1 or any(type(value) not in (int,float) or not math.isfinite(value) or value < 0 for value in values):
+        raise ValueError("percentile requires finite nonnegative observations and a fraction in [0,1]")
     return round(sorted(values)[max(0, math.ceil(len(values) * fraction) - 1)], 2) if values else None
 
 def run_baseline(requests, concurrency):
