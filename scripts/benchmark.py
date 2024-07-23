@@ -18,6 +18,8 @@ def percentile(values, fraction):
     return round(sorted(values)[max(0, math.ceil(len(values) * fraction) - 1)], 2) if values else None
 
 def run_baseline(requests, concurrency):
+    if type(requests) is not int or not 1 <= requests <= 1000 or type(concurrency) is not int or not 1 <= concurrency <= 16:
+        raise ValueError("use 1..1000 requests and concurrency 1..16")
     bearer = token(); initial_orders = len(ledger()['orders']); prefix = 'bench-' + uuid.uuid4().hex
     def send(index):
         started = time.perf_counter()

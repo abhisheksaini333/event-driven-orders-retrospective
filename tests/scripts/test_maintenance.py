@@ -28,3 +28,9 @@ class MaintenanceTests(unittest.TestCase):
         module=self.load('benchmark.py')
         for values,fraction in (([float('nan')],.5),([-1],.5),([1],True),([1],1.1)):
             with self.assertRaises(ValueError):module.percentile(values,fraction)
+
+    def test_baseline_limits_apply_before_external_setup(self):
+        module=self.load('benchmark.py')
+        with patch.object(module,'token',side_effect=AssertionError('unexpected token request')):
+            for count,concurrency in ((0,1),(1,0),(True,1),(1,17)):
+                with self.assertRaises(ValueError):module.run_baseline(count,concurrency)
