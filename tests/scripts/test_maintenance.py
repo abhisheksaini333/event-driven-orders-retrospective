@@ -34,3 +34,9 @@ class MaintenanceTests(unittest.TestCase):
         with patch.object(module,'token',side_effect=AssertionError('unexpected token request')):
             for count,concurrency in ((0,1),(1,0),(True,1),(1,17)):
                 with self.assertRaises(ValueError):module.run_baseline(count,concurrency)
+
+    def test_benchmark_report_preserves_existing_evidence(self):
+        module=self.load('benchmark.py');output=self.root/'result.json';output.write_text('existing')
+        with patch.object(module,'run_baseline',return_value={'status':'passed'}),contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(FileExistsError):module.main(['--output',str(output)])
+        self.assertEqual(output.read_text(),'existing')

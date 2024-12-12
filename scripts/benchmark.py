@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
 import math
+import os
 from pathlib import Path
 import platform
 import statistics
@@ -71,7 +72,15 @@ def main(argv=None):
     except Exception as error:
         result = {'recorded_at': datetime.now(timezone.utc).isoformat(), 'status': 'failed', 'phase': 'setup', 'error_type': type(error).__name__, 'requests': args.requests}
     print(json.dumps(result, indent=2))
-    if args.output: args.output.write_text(json.dumps(result, indent=2) + '\n')
+    if args.output:
+        descriptor = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(descriptor, 'w') as stream:
+                json.dump(result, stream, indent=2, allow_nan=False); stream.write('\n')
+                stream.flush(); os.fsync(stream.fileno())
+        except BaseException:
+            args.output.unlink(missing_ok=True)
+            raise
     return 0 if result['status'] == 'passed' else 1
 
 if __name__ == '__main__':

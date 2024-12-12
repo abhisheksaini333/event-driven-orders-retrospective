@@ -81,3 +81,5 @@ This captures state, not the separate broker stream or Keycloak database. An acc
 Snapshot dates must be nullable ISO timestamps with a timezone and supported calendar/offset range. Numeric schema/event/request versions require JSON integers; booleans are rejected before any Redis operation.
 
 State reads use one linked deadline across response headers, retry delays and bounded body streaming. The configured named HTTP client timeout (five seconds by default) and caller cancellation both stop incomplete body reads.
+
+Benchmark `--output` now requires a new destination, creates it with mode 0600 and removes partial output on a write failure. Choose a fresh filename for every run.
