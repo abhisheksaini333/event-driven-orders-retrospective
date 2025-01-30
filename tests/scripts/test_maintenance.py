@@ -40,3 +40,8 @@ class MaintenanceTests(unittest.TestCase):
         with patch.object(module,'run_baseline',return_value={'status':'passed'}),contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaises(FileExistsError):module.main(['--output',str(output)])
         self.assertEqual(output.read_text(),'existing')
+
+    def test_loopback_origins_require_valid_ports(self):
+        module=self.load('demo.py')
+        for url in ('http://localhost:0','http://localhost:65536','http://localhost:bad'):
+            with patch.dict(os.environ,{'MAINTENANCE_URL':url}),self.assertRaises(ValueError):module.local_origin('MAINTENANCE_URL','http://localhost')

@@ -18,6 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def local_origin(name, fallback):
     value = os.environ.get(name, fallback)
     parsed = urllib.parse.urlparse(value)
+    if parsed.port is not None and not 1 <= parsed.port <= 65535:
+        raise ValueError(name + ' must use a valid TCP port.')
     if parsed.scheme not in ('http', 'https') or parsed.hostname not in ('localhost', '127.0.0.1', '::1') or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ('', '/'):
         raise ValueError(name + ' must be a loopback HTTP(S) origin.')
     return value.rstrip('/')
