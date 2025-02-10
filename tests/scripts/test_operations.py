@@ -74,7 +74,8 @@ class OperationsTests(unittest.TestCase):
     def test_demo_preserves_non_json_error_status(self):
         module = self.load('demo.py')
         error = module.urllib.error.HTTPError('http://localhost', 503, 'Unavailable', {}, io.BytesIO(b'private proxy response'))
-        with patch.object(module.urllib.request, 'urlopen', side_effect=error):
+        with patch.object(module.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.side_effect = error
             status, body = module.request('GET', 'http://localhost')
         self.assertEqual(503, status); self.assertEqual('non_json_response', body['error'])
         self.assertNotIn('private proxy response', json.dumps(body))

@@ -6,14 +6,14 @@ import os
 import sys
 import unittest
 from unittest.mock import patch
-from test_operations import OperationsTests
+import test_operations as operations
 
 class MaintenanceTests(unittest.TestCase):
-    setUp=OperationsTests.setUp
-    cli=OperationsTests.cli
-    load=OperationsTests.load
+    setUp=operations.OperationsTests.setUp
+    cli=operations.OperationsTests.cli
+    load=operations.OperationsTests.load
     def tearDown(self):
-        OperationsTests.tearDown(self)
+        operations.OperationsTests.tearDown(self)
         for name in ('ledger_snapshot','check_vulnerabilities'):sys.modules.pop(name,None)
     def snapshot(self,module):
         ledger={'schemaVersion':1,'orders':{},'requests':{},'outbox':{},'receipts':[]}
@@ -45,3 +45,12 @@ class MaintenanceTests(unittest.TestCase):
         module=self.load('demo.py')
         for url in ('http://localhost:0','http://localhost:65536','http://localhost:bad'):
             with patch.dict(os.environ,{'MAINTENANCE_URL':url}),self.assertRaises(ValueError):module.local_origin('MAINTENANCE_URL','http://localhost')
+
+    def test_authenticated_requests_refuse_redirects(self):
+        module=self.load('demo.py')
+        handler=module.NoRedirect()
+        self.assertIsNone(handler.redirect_request(None,None,302,'redirect',{},'https://outside.invalid'))
+        with patch.object(module.urllib.request,'urlopen',side_effect=AssertionError('unsafe opener')),patch.object(module.urllib.request,'build_opener') as opener:
+            response=opener.return_value.open.return_value.__enter__.return_value
+            response.status=200;response.read.return_value=b'{}'
+            self.assertEqual(module.request('GET','http://localhost/test',token='secret')[0],200)

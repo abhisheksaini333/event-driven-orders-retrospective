@@ -41,6 +41,11 @@ def decode_response(response):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return {'error': 'non_json_response', 'bytes': len(raw)}
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, message, headers, newurl):
+        return None
+
+
 def request(method, url, data=None, token=None, key=None, headers=None):
     actual = {'Content-Type': 'application/json', **(headers or {})}
     if token:
@@ -49,7 +54,7 @@ def request(method, url, data=None, token=None, key=None, headers=None):
         actual['Idempotency-Key'] = key
     body = json.dumps(data).encode() if data is not None else None
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, data=body, method=method, headers=actual), timeout=15) as response:
+        with urllib.request.build_opener(NoRedirect()).open(urllib.request.Request(url, data=body, method=method, headers=actual), timeout=15) as response:
             return response.status, decode_response(response)
     except urllib.error.HTTPError as error:
         return error.code, decode_response(error)
@@ -58,7 +63,7 @@ def token(reader=False):
     body = urllib.parse.urlencode({'grant_type': 'client_credentials', 'client_id': 'reader-cli' if reader else 'orders-cli',
                                   'client_secret': load_env()['READER_CLIENT_SECRET' if reader else 'ORDERS_CLIENT_SECRET']}).encode()
     req = urllib.request.Request(KEYCLOAK + '/realms/orders/protocol/openid-connect/token', data=body)
-    with urllib.request.urlopen(req, timeout=10) as response:
+    with urllib.request.build_opener(NoRedirect()).open(req, timeout=10) as response:
         return json.load(response)['access_token']
 
 def compose(*args, input=None):
