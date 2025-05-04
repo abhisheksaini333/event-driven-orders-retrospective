@@ -30,6 +30,17 @@ WORKER = local_origin('ORDERS_WORKER_URL', 'http://127.0.0.1:4321')
 def load_env():
     return dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line and not line.lstrip().startswith('#'))
 
+def strict_json(raw):
+    def unique(pairs):
+        output = {}
+        for key, value in pairs:
+            if key in output: raise ValueError('Duplicate JSON key.')
+            output[key] = value
+        return output
+    def nonfinite(value): raise ValueError('Nonfinite JSON value.')
+    return json.loads(raw, object_pairs_hook=unique, parse_constant=nonfinite)
+
+
 def decode_response(response):
     raw = response.read(1048577)
     if len(raw) > 1048576:
@@ -37,8 +48,8 @@ def decode_response(response):
     if not raw:
         return None
     try:
-        return json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError):
+        return strict_json(raw)
+    except (ValueError, UnicodeDecodeError):
         return {'error': 'non_json_response', 'bytes': len(raw)}
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):

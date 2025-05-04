@@ -54,3 +54,8 @@ class MaintenanceTests(unittest.TestCase):
             response=opener.return_value.open.return_value.__enter__.return_value
             response.status=200;response.read.return_value=b'{}'
             self.assertEqual(module.request('GET','http://localhost/test',token='secret')[0],200)
+
+    def test_demo_response_json_rejects_ambiguous_values(self):
+        module=self.load('demo.py')
+        for raw in (b'{"a":1,"a":2}',b'{"a":NaN}'):
+            self.assertEqual(module.decode_response(io.BytesIO(raw))['error'],'non_json_response')
