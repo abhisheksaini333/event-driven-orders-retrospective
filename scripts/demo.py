@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -96,6 +97,8 @@ def ledger():
     return json.loads(raw) if raw else {'orders': {}, 'requests': {}, 'outbox': {}, 'receipts': []}
 
 def until(check, timeout=90):
+    if type(timeout) not in (int,float) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("polling timeout must be finite and positive")
     end = time.monotonic() + timeout
     last = None
     while time.monotonic() < end:
@@ -105,7 +108,7 @@ def until(check, timeout=90):
                 return last
         except (OSError, urllib.error.URLError, subprocess.CalledProcessError):
             pass
-        time.sleep(0.5)
+        time.sleep(min(0.5, max(0, end - time.monotonic())))
     raise AssertionError(f'Timed out after {timeout}s; last result={last!r}')
 
 def broker_drained():

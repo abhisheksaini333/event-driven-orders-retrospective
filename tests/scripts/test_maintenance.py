@@ -59,3 +59,11 @@ class MaintenanceTests(unittest.TestCase):
         module=self.load('demo.py')
         for raw in (b'{"a":1,"a":2}',b'{"a":NaN}'):
             self.assertEqual(module.decode_response(io.BytesIO(raw))['error'],'non_json_response')
+
+    def test_polling_timeout_contract_and_remaining_delay(self):
+        module=self.load('demo.py')
+        for timeout in (0,True,float('nan')):
+            with self.assertRaises(ValueError):module.until(lambda:True,timeout)
+        with patch.object(module.time,'monotonic',side_effect=[0,0,.9,1.1]),patch.object(module.time,'sleep') as sleep:
+            with self.assertRaises(AssertionError):module.until(lambda:False,1)
+            self.assertAlmostEqual(sleep.call_args.args[0],.1)
