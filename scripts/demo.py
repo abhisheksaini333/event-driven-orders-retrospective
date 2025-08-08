@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import json
 import math
 import os
+import re
 from pathlib import Path
 import subprocess
 import time
@@ -29,7 +30,14 @@ API = local_origin('ORDERS_API_URL', 'http://127.0.0.1:4320')
 KEYCLOAK = local_origin('ORDERS_KEYCLOAK_URL', 'http://127.0.0.1:4322')
 WORKER = local_origin('ORDERS_WORKER_URL', 'http://127.0.0.1:4321')
 def load_env():
-    return dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines() if '=' in line and not line.lstrip().startswith('#'))
+    values = {}
+    for line in (ROOT / '.env').read_text().splitlines():
+        if not line.strip() or line.lstrip().startswith('#'): continue
+        key, separator, value = line.partition('=')
+        if not separator or not re.fullmatch(r'[A-Z][A-Z0-9_]*', key) or key in values:
+            raise ValueError('Invalid or duplicate environment key.')
+        values[key] = value
+    return values
 
 def strict_json(raw):
     def unique(pairs):

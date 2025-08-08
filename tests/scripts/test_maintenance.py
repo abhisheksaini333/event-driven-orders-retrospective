@@ -67,3 +67,11 @@ class MaintenanceTests(unittest.TestCase):
         with patch.object(module.time,'monotonic',side_effect=[0,0,.9,1.1]),patch.object(module.time,'sleep') as sleep:
             with self.assertRaises(AssertionError):module.until(lambda:False,1)
             self.assertAlmostEqual(sleep.call_args.args[0],.1)
+
+    def test_environment_parser_rejects_duplicate_credentials(self):
+        module=self.load('demo.py')
+        (self.root/'.env').write_text('TOKEN=first\nTOKEN=second\n')
+        with self.assertRaises(ValueError) as error:module.load_env()
+        self.assertNotIn('second',str(error.exception))
+        (self.root/'.env').write_text('# comment\n\nTOKEN=value=part\n')
+        self.assertEqual(module.load_env(),{'TOKEN':'value=part'})
