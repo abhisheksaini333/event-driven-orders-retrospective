@@ -75,3 +75,9 @@ class MaintenanceTests(unittest.TestCase):
         self.assertNotIn('second',str(error.exception))
         (self.root/'.env').write_text('# comment\n\nTOKEN=value=part\n')
         self.assertEqual(module.load_env(),{'TOKEN':'value=part'})
+
+    def test_snapshot_capture_rejects_duplicate_ledger_fields(self):
+        self.load('demo.py');module=self.load('ledger-snapshot.py')
+        raw='{"orders":{},"orders":{},"requests":{},"outbox":{},"receipts":[]}'
+        with patch.object(module,'compose',return_value=json.dumps({'data':raw,'version':'1'})):
+            with self.assertRaises(ValueError):module.capture()

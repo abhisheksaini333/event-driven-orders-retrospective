@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
-from demo import compose
+from demo import compose, strict_json
 
 MAXIMUM_BYTES = 16 * 1024 * 1024
 IDENTIFIER = re.compile(r'[a-f0-9]{32}')
@@ -66,15 +66,16 @@ def valid_key(key):
 
 def capture(key='orders-ledger-v1'):
     raw = compose('exec', '-T', 'redis', 'redis-cli', '--json', 'HGETALL', valid_key(key))
-    fields = json.loads(raw)
+    fields = strict_json(raw)
     if isinstance(fields, list):
         if len(fields) % 2: raise ValueError('Malformed Redis hash response.')
+        if len(set(fields[::2])) != len(fields[::2]): raise ValueError('Duplicate Redis hash field.')
         fields = dict(zip(fields[::2], fields[1::2]))
     if not isinstance(fields, dict) or not fields: raise FileNotFoundError('Ledger is absent.')
     data = fields.get('data')
     if not isinstance(data, str) or len(data.encode()) > MAXIMUM_BYTES: raise ValueError('Invalid ledger payload size.')
     if int(fields.get('version', '0')) <= 0: raise ValueError('Invalid source state version.')
-    ledger = validate_ledger(json.loads(data)); encoded = canonical(ledger)
+    ledger = validate_ledger(strict_json(data)); encoded = canonical(ledger)
     return {'format': 1, 'recorded_at': datetime.now(timezone.utc).isoformat(), 'source_key': key,
             'source_version': str(fields['version']), 'ledger': ledger, 'sha256': hashlib.sha256(encoded.encode()).hexdigest()}
 
@@ -109,7 +110,7 @@ def main(argv=None):
                 json.dump(snapshot, target, indent=2); target.write('\n'); target.flush(); os.fsync(target.fileno())
         else:
             if args.input.stat().st_size > MAXIMUM_BYTES * 2: raise ValueError('Snapshot file exceeds size limit.')
-            snapshot = json.loads(args.input.read_text()); restore(snapshot, args.key)
+            snapshot = strict_json(args.input.read_text()); restore(snapshot, args.key)
         print(json.dumps({'status': 'passed', 'action': args.action, 'orders': len(snapshot['ledger']['orders'])})); return 0
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as error:
         print(json.dumps({'status': 'failed', 'action': args.action, 'error_type': type(error).__name__})); return 1
