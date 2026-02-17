@@ -81,3 +81,9 @@ class MaintenanceTests(unittest.TestCase):
         raw='{"orders":{},"orders":{},"requests":{},"outbox":{},"receipts":[]}'
         with patch.object(module,'compose',return_value=json.dumps({'data':raw,'version':'1'})):
             with self.assertRaises(ValueError):module.capture()
+
+    def test_snapshot_rejects_inverted_order_lifecycle(self):
+        self.load('demo.py');module=self.load('ledger-snapshot.py');snapshot=self.snapshot(module);identifier='a'*32;event='b'*32
+        order={'id':identifier,'eventId':event,'owner':'alice','sku':'SKU','quantity':1,'status':'fulfilled','acceptedAt':'2021-01-02T00:00:00Z','fulfilledAt':'2021-01-01T00:00:00Z'}
+        snapshot['ledger']['orders'][identifier]=order;snapshot['ledger']['receipts']=[event]
+        with self.assertRaises(ValueError):module.validate_ledger(snapshot['ledger'])

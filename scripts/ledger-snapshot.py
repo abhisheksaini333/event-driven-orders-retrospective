@@ -44,6 +44,9 @@ def validate_ledger(ledger):
         if not isinstance(sku, str) or not re.fullmatch(r'[A-Z0-9-]{1,32}', sku) or type(quantity) is not int or not 1 <= quantity <= 1000:
             raise ValueError('Invalid order payload.')
         if order.get('status') not in ('accepted', 'fulfilled'): raise ValueError('Invalid order status.')
+        accepted, fulfilled = order.get('acceptedAt'), order.get('fulfilledAt')
+        if order['status'] == 'accepted' and fulfilled is not None or accepted is not None and fulfilled is not None and datetime.fromisoformat(fulfilled) < datetime.fromisoformat(accepted):
+            raise ValueError('Inconsistent lifecycle timestamps.')
         if (order['status'] == 'fulfilled') != (event in ledger['receipts']): raise ValueError('Inconsistent fulfillment receipt.')
         events.add(event)
     receipts = ledger['receipts']
