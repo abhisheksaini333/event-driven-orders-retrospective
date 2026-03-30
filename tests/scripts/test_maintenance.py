@@ -87,3 +87,8 @@ class MaintenanceTests(unittest.TestCase):
         order={'id':identifier,'eventId':event,'owner':'alice','sku':'SKU','quantity':1,'status':'fulfilled','acceptedAt':'2021-01-02T00:00:00Z','fulfilledAt':'2021-01-01T00:00:00Z'}
         snapshot['ledger']['orders'][identifier]=order;snapshot['ledger']['receipts']=[event]
         with self.assertRaises(ValueError):module.validate_ledger(snapshot['ledger'])
+
+    def test_snapshot_requires_valid_source_metadata(self):
+        self.load('demo.py');module=self.load('ledger-snapshot.py')
+        for extra in ({'source_key':'bad/key'},{'source_version':'0'},{'recorded_at':None}):
+            with self.assertRaises(ValueError):module.verify({**self.snapshot(module),**extra})

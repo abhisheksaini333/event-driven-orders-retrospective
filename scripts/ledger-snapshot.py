@@ -84,6 +84,12 @@ def capture(key='orders-ledger-v1'):
 
 def verify(snapshot):
     if not isinstance(snapshot, dict) or type(snapshot.get('format')) is not int or snapshot.get('format') != 1: raise ValueError('Unsupported snapshot format.')
+    if not isinstance(snapshot.get('source_key'), str): raise ValueError('Missing snapshot source key.')
+    valid_key(snapshot['source_key'])
+    version = snapshot.get('source_version')
+    if not isinstance(version, str) or not re.fullmatch(r'[1-9][0-9]{0,18}', version) or int(version) > 9223372036854775807: raise ValueError('Invalid snapshot source version.')
+    if not isinstance(snapshot.get('recorded_at'), str): raise ValueError('Missing snapshot capture timestamp.')
+    validate_timestamp(snapshot['recorded_at'])
     ledger = validate_ledger(snapshot.get('ledger')); encoded = canonical(ledger)
     if len(encoded.encode()) > MAXIMUM_BYTES: raise ValueError('Snapshot exceeds size limit.')
     if hashlib.sha256(encoded.encode()).hexdigest() != snapshot.get('sha256'): raise ValueError('Snapshot digest mismatch.')

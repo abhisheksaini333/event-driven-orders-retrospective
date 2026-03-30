@@ -204,7 +204,7 @@ class OperationsTests(unittest.TestCase):
                   'requests': {'a' * 64: {'fingerprint': 'b' * 64, 'orderId': order_id, 'version': 1}},
                   'outbox': {event_id: {'eventId': event_id, 'orderId': order_id, 'version': 1}}, 'receipts': []}
         def snapshot(value):
-            return {'format': 1, 'ledger': value, 'sha256': hashlib.sha256(module.canonical(value).encode()).hexdigest()}
+            return {'format': 1, 'recorded_at': '2021-01-01T00:00:00Z', 'source_key': 'orders-ledger-v1', 'source_version': '1', 'ledger': value, 'sha256': hashlib.sha256(module.canonical(value).encode()).hexdigest()}
         for value in [None, '2026-09-29T01:02:03Z', '2026-09-29T01:02:03.1234567+05:30']:
             valid = copy.deepcopy(ledger); valid['orders'][order_id]['acceptedAt'] = value
             module.verify(snapshot(valid))
