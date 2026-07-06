@@ -92,3 +92,10 @@ class MaintenanceTests(unittest.TestCase):
         self.load('demo.py');module=self.load('ledger-snapshot.py')
         for extra in ({'source_key':'bad/key'},{'source_version':'0'},{'recorded_at':None}):
             with self.assertRaises(ValueError):module.verify({**self.snapshot(module),**extra})
+
+    def test_restore_refuses_indeterminate_writer_status(self):
+        self.load('demo.py');module=self.load('ledger-snapshot.py')
+        for states in ([{'State':'mystery'}],[{}],[None]):
+            with patch.object(module,'compose',return_value=json.dumps(states)) as compose:
+                with self.assertRaises(ValueError):module.restore(self.snapshot(module))
+                self.assertEqual(compose.call_count,1)

@@ -101,6 +101,8 @@ def restore(snapshot, key='orders-ledger-v1'):
     try: services = json.loads(raw) if raw else []
     except json.JSONDecodeError: services = [json.loads(line) for line in raw.splitlines() if line.strip()]
     if isinstance(services, dict): services = [services]
+    if not isinstance(services, list) or any(not isinstance(item, dict) or item.get('State') not in ('running','restarting','paused','created','exited','dead') for item in services):
+        raise ValueError('Cannot determine writer service state.')
     if any(item['State'] in ('running', 'restarting', 'paused') for item in services):
         raise RuntimeError('Stop API and worker before restoring state.')
     operation = "if redis.call('EXISTS', KEYS[1]) ~= 0 then return 0 end; redis.call('HSET', KEYS[1], 'data', ARGV[1], 'version', 1, 'first-write', 0); return 1"
