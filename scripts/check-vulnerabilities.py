@@ -4,32 +4,46 @@ import argparse
 import json
 from pathlib import Path
 
+def records(value, field):
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        raise ValueError('Invalid report collection: ' + field)
+    return value
+
+def severity(issue, field, allowed):
+    value = issue.get(field)
+    if not isinstance(value, str) or value.lower() not in allowed:
+        raise ValueError('Unknown vulnerability severity.')
+    return value.lower()
+
 def nuget_findings(report):
-    if report.get('version') != 1 or not isinstance(report.get('projects'), list) or not report['projects']:
-        raise ValueError('Expected a version-1 NuGet package report with projects.')
+    if not isinstance(report, dict) or type(report.get('version')) is not int or report['version'] != 1:
+        raise ValueError('Expected a version-1 NuGet report.')
+    projects = records(report.get('projects'), 'projects')
+    if not projects: raise ValueError('NuGet report has no projects.')
     findings = []
-    for project in report['projects']:
-        if not isinstance(project.get('path'), str): raise ValueError('Missing project path.')
-        for framework in project.get('frameworks', []):
+    for project in projects:
+        if not isinstance(project.get('path'), str) or not project['path']: raise ValueError('Missing project path.')
+        for framework in records(project.get('frameworks', []), 'frameworks'):
             for group in ('topLevelPackages', 'transitivePackages'):
-                for package in framework.get(group, []):
-                    for issue in package.get('vulnerabilities', []):
-                        severity = issue.get('severity', '').lower()
-                        if severity not in ('low', 'moderate', 'high', 'critical'): raise ValueError('Unknown NuGet severity.')
-                        if severity in ('high', 'critical'):
-                            findings.append({'package': package['id'], 'severity': severity, 'advisory': issue.get('advisoryurl', '')})
+                for package in records(framework.get(group, []), group):
+                    for issue in records(package.get('vulnerabilities', []), 'vulnerabilities'):
+                        level = severity(issue, 'severity', ('low','moderate','high','critical'))
+                        if not isinstance(package.get('id'), str) or not package['id']: raise ValueError('Missing package identity.')
+                        if level in ('high','critical'):
+                            findings.append({'package':package['id'], 'severity':level, 'advisory':issue.get('advisoryurl','')})
     return findings
 
 def trivy_findings(report):
-    if report.get('SchemaVersion') != 2 or not isinstance(report.get('Results'), list):
-        raise ValueError('Expected a version-2 Trivy report with results.')
+    if not isinstance(report, dict) or type(report.get('SchemaVersion')) is not int or report['SchemaVersion'] != 2:
+        raise ValueError('Expected a version-2 Trivy report.')
     findings = []
-    for result in report['Results']:
-        for issue in result.get('Vulnerabilities') or []:
-            severity = issue.get('Severity', '').lower()
-            if severity not in ('unknown', 'low', 'medium', 'high', 'critical'): raise ValueError('Unknown Trivy severity.')
-            if severity in ('high', 'critical'):
-                findings.append({'package': issue['PkgName'], 'severity': severity, 'advisory': issue['VulnerabilityID']})
+    for result in records(report.get('Results'), 'Results'):
+        vulnerabilities = result.get('Vulnerabilities')
+        for issue in records([] if vulnerabilities is None else vulnerabilities, 'Vulnerabilities'):
+            level = severity(issue, 'Severity', ('unknown','low','medium','high','critical'))
+            if not isinstance(issue.get('PkgName'), str) or not isinstance(issue.get('VulnerabilityID'), str): raise ValueError('Missing vulnerability identity.')
+            if level in ('high','critical'):
+                findings.append({'package':issue['PkgName'], 'severity':level, 'advisory':issue['VulnerabilityID']})
     return findings
 
 def main(argv=None):

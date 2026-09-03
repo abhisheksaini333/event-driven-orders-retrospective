@@ -99,3 +99,10 @@ class MaintenanceTests(unittest.TestCase):
             with patch.object(module,'compose',return_value=json.dumps(states)) as compose:
                 with self.assertRaises(ValueError):module.restore(self.snapshot(module))
                 self.assertEqual(compose.call_count,1)
+
+    def test_vulnerability_gate_fails_closed_on_nested_report_shapes(self):
+        module=self.load('check-vulnerabilities.py')
+        for report in ([],{'version':1,'projects':[None]},{'version':1,'projects':[{'path':'p','frameworks':{}}]}):
+            with self.assertRaises(ValueError):module.nuget_findings(report)
+        for report in ({'SchemaVersion':2,'Results':[None]},{'SchemaVersion':2,'Results':[{'Vulnerabilities':{}}]}):
+            with self.assertRaises(ValueError):module.trivy_findings(report)
