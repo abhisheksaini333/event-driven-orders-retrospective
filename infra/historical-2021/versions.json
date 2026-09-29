@@ -1,6 +1,5 @@
 {
   "purpose": "Reference pins for comparing late-2021 framework and deployment capabilities.",
-  "authored_on": "2026-09-29",
   "dotnet_sdk": "6.0.100",
   "dotnet_runtime": "6.0.0",
   "dapr_runtime": "1.5.0",

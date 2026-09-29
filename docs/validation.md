@@ -1,6 +1,6 @@
 # Validation record
 
-Recorded 2026-09-29 on macOS arm64, Docker Desktop Engine 28.0.4, with SDK 10.0.401 and the versions pinned in Compose. Evidence contains synthetic test data and no credentials.
+Local environment: macOS arm64, Docker Desktop Engine 28.0.4, SDK 10.0.401, and the versions pinned in Compose. Evidence contains synthetic test data and no credentials.
 
 | Check | Evidence | Scope |
 |---|---|---|
