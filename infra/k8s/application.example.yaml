@@ -1,0 +1,17 @@
+# Review-only template. Set the actual Git URL and an immutable revision before use.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: orders-retrospective
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://example.invalid/replace-with-reviewed-repository.git
+    targetRevision: REPLACE_WITH_REVIEWED_COMMIT_SHA
+    path: infra/k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: orders-retrospective
+  syncPolicy:
+    syncOptions: [CreateNamespace=true]

@@ -1,0 +1,29 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: orders-state
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+    - {name: redisHost, secretKeyRef: {name: orders-platform-redis, key: state-host}}
+    - {name: redisPassword, secretKeyRef: {name: orders-platform-redis, key: state-password}}
+    - {name: enableTLS, value: 'true'}
+    - {name: keyPrefix, value: none}
+scopes: [orders-api, orders-worker]
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: orders-pubsub
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+    - {name: redisHost, secretKeyRef: {name: orders-platform-redis, key: broker-host}}
+    - {name: redisPassword, secretKeyRef: {name: orders-platform-redis, key: broker-password}}
+    - {name: enableTLS, value: 'true'}
+    - {name: consumerID, value: orders-worker}
+    - {name: processingTimeout, value: 2s}
+    - {name: redeliverInterval, value: 2s}
+scopes: [orders-api, orders-worker]

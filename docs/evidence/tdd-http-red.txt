@@ -1,0 +1,71 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Orders -> /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/bin/Debug/net10.0/Orders.dll
+  Orders.Tests -> /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/bin/Debug/net10.0/Orders.Tests.dll
+Test run for /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/bin/Debug/net10.0/Orders.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.79]     Orders.Tests.HttpTests.Expired_token_is_401 [FAIL]
+[xUnit.net 00:00:01.84]     Orders.Tests.HttpTests.Malformed_token_is_401 [FAIL]
+[xUnit.net 00:00:01.87]     Orders.Tests.HttpTests.Writer_gets_202_and_replay_gets_200 [FAIL]
+[xUnit.net 00:00:01.92]     Orders.Tests.HttpTests.Invalid_payload_is_400 [FAIL]
+[xUnit.net 00:00:01.96]     Orders.Tests.HttpTests.Missing_idempotency_key_is_400 [FAIL]
+[xUnit.net 00:00:01.99]     Orders.Tests.HttpTests.Authenticated_reader_is_403 [FAIL]
+[xUnit.net 00:00:02.00]     Orders.Tests.HttpTests.Missing_token_is_401 [FAIL]
+  Failed Orders.Tests.HttpTests.Expired_token_is_401 [832 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Unauthorized
+Actual:   NotFound
+  Stack Trace:
+     at Orders.Tests.HttpTests.Expired_token_is_401() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/HttpTests.cs:line 56
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.HttpTests.Malformed_token_is_401 [37 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Unauthorized
+Actual:   NotFound
+  Stack Trace:
+     at Orders.Tests.HttpTests.Malformed_token_is_401() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/HttpTests.cs:line 55
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.HttpTests.Writer_gets_202_and_replay_gets_200 [21 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Accepted
+Actual:   NotFound
+  Stack Trace:
+     at Orders.Tests.HttpTests.Writer_gets_202_and_replay_gets_200() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/HttpTests.cs:line 61
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.HttpTests.Invalid_payload_is_400 [33 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   NotFound
+  Stack Trace:
+     at Orders.Tests.HttpTests.Invalid_payload_is_400() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/HttpTests.cs:line 66
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.HttpTests.Missing_idempotency_key_is_400 [41 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   NotFound
+  Stack Trace:
+     at Orders.Tests.HttpTests.Missing_idempotency_key_is_400() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/HttpTests.cs:line 65
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.HttpTests.Authenticated_reader_is_403 [28 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   NotFound
+  Stack Trace:
+     at Orders.Tests.HttpTests.Authenticated_reader_is_403() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/HttpTests.cs:line 57
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.HttpTests.Missing_token_is_401 [6 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Unauthorized
+Actual:   NotFound
+  Stack Trace:
+     at Orders.Tests.HttpTests.Missing_token_is_401() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/HttpTests.cs:line 54
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     7, Passed:     0, Skipped:     0, Total:     7, Duration: 1 s - Orders.Tests.dll (net10.0)

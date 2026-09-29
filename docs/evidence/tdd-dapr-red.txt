@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Orders -> /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/bin/Debug/net10.0/Orders.dll
+  Orders.Tests -> /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/bin/Debug/net10.0/Orders.Tests.dll
+Test run for /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/bin/Debug/net10.0/Orders.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.15]     Orders.Tests.DaprAdapterTests.Reads_unquoted_Dapr_numeric_ETag [FAIL]
+  Failed Orders.Tests.DaprAdapterTests.Reads_unquoted_Dapr_numeric_ETag [9 ms]
+  Error Message:
+   System.Net.Http.HttpRequestException : State ETag is missing
+  Stack Trace:
+     at Orders.DaprLedgerStore.Read(CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/DaprAdapters.cs:line 15
+   at Orders.Tests.DaprAdapterTests.Reads_unquoted_Dapr_numeric_ETag() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DaprAdapterTests.cs:line 21
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     1, Passed:     2, Skipped:     0, Total:     3, Duration: 52 ms - Orders.Tests.dll (net10.0)

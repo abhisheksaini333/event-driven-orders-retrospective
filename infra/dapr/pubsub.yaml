@@ -1,0 +1,21 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: orders-pubsub
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: broker:6379
+    - name: enableTLS
+      value: 'false'
+    - name: consumerID
+      value: orders-worker
+    - name: processingTimeout
+      value: 2s
+    - name: redeliverInterval
+      value: 2s
+    - name: queueDepth
+      value: '32'
+scopes: [orders-api, orders-worker]

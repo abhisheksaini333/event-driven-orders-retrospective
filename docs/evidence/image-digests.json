@@ -1,0 +1,14 @@
+{
+  "orders-retrospective:local": [
+    "orders-retrospective@sha256:3374c71874669e2bce74bb9da811c660177aea1c4dafe51d5b83bef9453ef54e"
+  ],
+  "daprio/daprd:1.18.4": [
+    "daprio/daprd@sha256:1e218523a15be5be5f36d64aa33a40cbde8fbe963ba6122d42d9c9de5b24a372"
+  ],
+  "quay.io/keycloak/keycloak:26.7.4": [
+    "quay.io/keycloak/keycloak@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c"
+  ],
+  "redis:7.4.5-alpine": [
+    "redis@sha256:bb186d083732f669da90be8b0f975a37812b15e913465bb14d845db72a4e3e08"
+  ]
+}

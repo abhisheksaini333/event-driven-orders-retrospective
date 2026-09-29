@@ -1,0 +1,20 @@
+{
+  "recorded_at": "2026-09-29T12:28:45.017467+00:00",
+  "checks_passed": 13,
+  "fault_injection": true,
+  "checks": [
+    "missing authentication returns 401",
+    "verified reader token without writer role returns 403",
+    "invalid quantity rejected with 400",
+    "accepted order, identical replay and changed-content conflict",
+    "other identity cannot read order",
+    "real Dapr pubsub delivers and worker fulfills",
+    "worker callback requires sidecar token",
+    "16 concurrent retries create exactly one durable order",
+    "three broker duplicate deliveries retain one fulfillment receipt",
+    "broker outage leaves durable outbox across API restart",
+    "broker recovery drains outbox and fulfills pending order",
+    "queued broker event survives worker downtime",
+    "state Redis restart retains order and idempotency record"
+  ]
+}

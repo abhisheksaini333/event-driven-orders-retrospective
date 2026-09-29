@@ -1,0 +1,21 @@
+{
+  "recorded_at": "2026-09-29T12:25:30.907857+00:00",
+  "host": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+  "concurrency": 4,
+  "requests": 100,
+  "initial_ledger_orders": 8,
+  "accepted": 100,
+  "http_statuses": {
+    "202": 100
+  },
+  "acceptance_seconds": 0.658,
+  "acceptance_requests_per_second": 152.08,
+  "http_latency_ms": {
+    "p50": 12.35,
+    "p95": 100.2,
+    "max": 224.4
+  },
+  "all_accepted_orders_observed_fulfilled_seconds": 3.786,
+  "fulfilled": 100,
+  "scope": "Local Docker Desktop; includes JWT verification, durable Redis CAS/AOF and concurrent dispatcher. No capacity or production claim."
+}

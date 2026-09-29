@@ -1,0 +1,10 @@
+.tools/
+.local/
+**/bin/
+**/obj/
+TestResults/
+.env
+*.trx
+.DS_Store
+__pycache__/
+*.py[cod]

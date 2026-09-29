@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: orders-worker}
+  template:
+    metadata:
+      labels: {app: orders-worker}
+      annotations:
+        dapr.io/enabled: 'true'
+        dapr.io/app-id: orders-worker
+        dapr.io/app-port: '4321'
+        dapr.io/api-token-secret: orders-sidecar-api-token
+        dapr.io/app-token-secret: orders-worker-callback-token
+    spec:
+      containers:
+        - name: worker
+          image: orders-retrospective:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: ASPNETCORE_URLS, value: 'http://+:4321'}
+            - {name: Role, value: worker}
+            - name: DAPR_API_TOKEN
+              valueFrom: {secretKeyRef: {name: orders-sidecar-api-token, key: token}}
+            - name: APP_API_TOKEN
+              valueFrom: {secretKeyRef: {name: orders-worker-callback-token, key: token}}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1654
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          readinessProbe: {httpGet: {path: /health/ready, port: 4321}, initialDelaySeconds: 5}
+          livenessProbe: {httpGet: {path: /health/live, port: 4321}, initialDelaySeconds: 10}

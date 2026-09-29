@@ -1,0 +1,205 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: orders-retrospective
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-api
+  namespace: orders-retrospective
+spec:
+  ports:
+  - name: http
+    port: 4320
+    targetPort: 4320
+  selector:
+    app: orders-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  namespace: orders-retrospective
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-api
+  template:
+    metadata:
+      annotations:
+        dapr.io/api-token-secret: orders-sidecar-api-token
+        dapr.io/app-id: orders-api
+        dapr.io/app-port: "4320"
+        dapr.io/enabled: "true"
+      labels:
+        app: orders-api
+    spec:
+      automountServiceAccountToken: true
+      containers:
+      - env:
+        - name: ASPNETCORE_URLS
+          value: http://+:4320
+        - name: Role
+          value: api
+        - name: Auth__Authority
+          valueFrom:
+            configMapKeyRef:
+              key: oidc-authority
+              name: orders-platform
+        - name: DAPR_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: orders-sidecar-api-token
+        image: orders-retrospective:local
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 4320
+          initialDelaySeconds: 10
+        name: api
+        ports:
+        - containerPort: 4320
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 4320
+          initialDelaySeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1654
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-worker
+  namespace: orders-retrospective
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-worker
+  template:
+    metadata:
+      annotations:
+        dapr.io/api-token-secret: orders-sidecar-api-token
+        dapr.io/app-id: orders-worker
+        dapr.io/app-port: "4321"
+        dapr.io/app-token-secret: orders-worker-callback-token
+        dapr.io/enabled: "true"
+      labels:
+        app: orders-worker
+    spec:
+      containers:
+      - env:
+        - name: ASPNETCORE_URLS
+          value: http://+:4321
+        - name: Role
+          value: worker
+        - name: DAPR_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: orders-sidecar-api-token
+        - name: APP_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: orders-worker-callback-token
+        image: orders-retrospective:local
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 4321
+          initialDelaySeconds: 10
+        name: worker
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 4321
+          initialDelaySeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1654
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: orders-pubsub
+  namespace: orders-retrospective
+scopes:
+- orders-api
+- orders-worker
+spec:
+  metadata:
+  - name: redisHost
+    secretKeyRef:
+      key: broker-host
+      name: orders-platform-redis
+  - name: redisPassword
+    secretKeyRef:
+      key: broker-password
+      name: orders-platform-redis
+  - name: enableTLS
+    value: "true"
+  - name: consumerID
+    value: orders-worker
+  - name: processingTimeout
+    value: 2s
+  - name: redeliverInterval
+    value: 2s
+  type: pubsub.redis
+  version: v1
+---
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: orders-state
+  namespace: orders-retrospective
+scopes:
+- orders-api
+- orders-worker
+spec:
+  metadata:
+  - name: redisHost
+    secretKeyRef:
+      key: state-host
+      name: orders-platform-redis
+  - name: redisPassword
+    secretKeyRef:
+      key: state-password
+      name: orders-platform-redis
+  - name: enableTLS
+    value: "true"
+  - name: keyPrefix
+    value: none
+  type: state.redis
+  version: v1

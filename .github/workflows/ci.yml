@@ -1,0 +1,28 @@
+name: Verify original orders retrospective
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore --locked-mode
+      - run: dotnet test --no-restore --configuration Release --nologo
+      - run: dotnet list src/Orders/Orders.csproj package --vulnerable --include-transitive
+      - run: python3 scripts/init-local.py
+      - run: docker compose config --quiet
+      - run: docker compose up -d --build
+      - run: python3 scripts/demo.py --faults --output integration-result.json
+      - run: python3 scripts/benchmark.py --requests 40 --concurrency 2 --output benchmark-result.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-evidence
+          path: '*-result.json'
+      - if: always()
+        run: docker compose down

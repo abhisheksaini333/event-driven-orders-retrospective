@@ -1,0 +1,84 @@
+name: event-driven-orders-retrospective
+services:
+  redis:
+    image: redis:7.4.5-alpine
+    command: [redis-server, --appendonly, 'yes', --appendfsync, always]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  broker:
+    image: redis:7.4.5-alpine
+    command: [redis-server, --appendonly, 'yes', --appendfsync, always]
+    volumes: [broker-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    command: [start-dev, --import-realm]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: local-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Run scripts/init-local.py}
+      KC_HOSTNAME: http://localhost:4322
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
+      KC_HTTP_ENABLED: 'true'
+    ports: [127.0.0.1:4322:8080]
+    volumes:
+      - ./.local/realm.json:/opt/keycloak/data/import/orders-realm.json:ro
+      - keycloak-data:/opt/keycloak/data
+  api:
+    build: .
+    image: orders-retrospective:local
+    pull_policy: never
+    environment:
+      ASPNETCORE_URLS: http://+:4320
+      ASPNETCORE_ENVIRONMENT: Development
+      Role: api
+      Dapr__Endpoint: http://api-dapr:3500
+      Auth__Authority: http://localhost:4322/realms/orders
+      Auth__MetadataAddress: http://keycloak:8080/realms/orders/.well-known/openid-configuration
+      DAPR_API_TOKEN: ${DAPR_API_TOKEN:?Run scripts/init-local.py}
+    ports: [127.0.0.1:4320:4320]
+    depends_on: [redis, keycloak]
+  api-dapr:
+    image: daprio/daprd:1.18.4
+    command: [./daprd, --app-id, orders-api, --app-channel-address, api, --dapr-listen-addresses, 0.0.0.0, --app-port, '4320', --dapr-http-port, '3500', --resources-path, /components, --log-level, warn]
+    environment:
+      DAPR_API_TOKEN: ${DAPR_API_TOKEN:?Run scripts/init-local.py}
+    volumes: [./infra/dapr:/components:ro]
+    depends_on:
+      api: {condition: service_started}
+      redis: {condition: service_healthy}
+      broker: {condition: service_healthy}
+  worker:
+    image: orders-retrospective:local
+    pull_policy: never
+    environment:
+      ASPNETCORE_URLS: http://+:4321
+      ASPNETCORE_ENVIRONMENT: Development
+      Role: worker
+      Dapr__Endpoint: http://worker-dapr:3500
+      APP_API_TOKEN: ${WORKER_CALLBACK_TOKEN:?Run scripts/init-local.py}
+      DAPR_API_TOKEN: ${DAPR_API_TOKEN:?Run scripts/init-local.py}
+    ports: [127.0.0.1:4321:4321]
+    depends_on: [redis]
+  worker-dapr:
+    image: daprio/daprd:1.18.4
+    command: [./daprd, --app-id, orders-worker, --app-channel-address, worker, --dapr-listen-addresses, 0.0.0.0, --app-port, '4321', --dapr-http-port, '3500', --resources-path, /components, --log-level, warn]
+    environment:
+      APP_API_TOKEN: ${WORKER_CALLBACK_TOKEN:?Run scripts/init-local.py}
+      DAPR_API_TOKEN: ${DAPR_API_TOKEN:?Run scripts/init-local.py}
+    volumes: [./infra/dapr:/components:ro]
+    depends_on:
+      worker: {condition: service_started}
+      redis: {condition: service_healthy}
+      broker: {condition: service_healthy}
+volumes:
+  redis-data:
+  keycloak-data:
+  broker-data:

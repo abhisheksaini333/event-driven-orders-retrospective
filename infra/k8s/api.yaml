@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: orders-api}
+  template:
+    metadata:
+      labels: {app: orders-api}
+      annotations:
+        dapr.io/enabled: 'true'
+        dapr.io/app-id: orders-api
+        dapr.io/app-port: '4320'
+        dapr.io/api-token-secret: orders-sidecar-api-token
+    spec:
+      automountServiceAccountToken: true # Dapr injector/control-plane identity; application has no RBAC grants.
+      containers:
+        - name: api
+          image: orders-retrospective:local
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 4320}]
+          env:
+            - {name: ASPNETCORE_URLS, value: 'http://+:4320'}
+            - {name: Role, value: api}
+            - name: Auth__Authority
+              valueFrom: {configMapKeyRef: {name: orders-platform, key: oidc-authority}}
+            - name: DAPR_API_TOKEN
+              valueFrom: {secretKeyRef: {name: orders-sidecar-api-token, key: token}}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1654
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '1', memory: 512Mi}
+          readinessProbe: {httpGet: {path: /health/ready, port: 4320}, initialDelaySeconds: 5}
+          livenessProbe: {httpGet: {path: /health/live, port: 4320}, initialDelaySeconds: 10}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-api
+spec:
+  selector: {app: orders-api}
+  ports: [{name: http, port: 4320, targetPort: 4320}]

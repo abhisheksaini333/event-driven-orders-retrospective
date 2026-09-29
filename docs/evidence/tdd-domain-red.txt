@@ -1,0 +1,137 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Orders -> /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/bin/Debug/net10.0/Orders.dll
+/Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs(57,9): warning xUnit2031: Do not use a Where clause to filter before calling Assert.Single. Use the overload of Assert.Single that accepts a filtering function. (https://xunit.net/xunit.analyzers/rules/xUnit2031) [/Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/Orders.Tests.csproj]
+  Orders.Tests -> /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/bin/Debug/net10.0/Orders.Tests.dll
+Test run for /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/bin/Debug/net10.0/Orders.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.36]     Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "<script>", quantity: 1) [FAIL]
+[xUnit.net 00:00:00.38]     Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "", quantity: 1) [FAIL]
+[xUnit.net 00:00:00.38]     Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "SKU-1", quantity: 0) [FAIL]
+[xUnit.net 00:00:00.38]     Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "SKU-1", quantity: 1001) [FAIL]
+[xUnit.net 00:00:00.38]     Orders.Tests.DomainTests.Reusing_key_with_different_content_conflicts [FAIL]
+[xUnit.net 00:00:00.39]     Orders.Tests.DomainTests.Concurrent_replay_creates_one_order [FAIL]
+[xUnit.net 00:00:00.39]     Orders.Tests.DomainTests.Publication_failure_keeps_outbox_for_restart [FAIL]
+[xUnit.net 00:00:00.39]     Orders.Tests.DomainTests.Unauthorized_owner_cannot_read_order [FAIL]
+[xUnit.net 00:00:00.40]     Orders.Tests.DomainTests.Canceled_submission_does_not_write [FAIL]
+  Failed Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "<script>", quantity: 1) [25 ms]
+  Error Message:
+   Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(Orders.InvalidOrder)
+Actual:   typeof(System.NotImplementedException)
+---- System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.Tests.DomainTests.Invalid_input_is_rejected(String sku, Int32 quantity) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.<>c__DisplayClass6_0.<Invalid_input_is_rejected>b__0() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+  Failed Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "", quantity: 1) [< 1 ms]
+  Error Message:
+   Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(Orders.InvalidOrder)
+Actual:   typeof(System.NotImplementedException)
+---- System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.Tests.DomainTests.Invalid_input_is_rejected(String sku, Int32 quantity) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.<>c__DisplayClass6_0.<Invalid_input_is_rejected>b__0() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+  Failed Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "SKU-1", quantity: 0) [< 1 ms]
+  Error Message:
+   Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(Orders.InvalidOrder)
+Actual:   typeof(System.NotImplementedException)
+---- System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.Tests.DomainTests.Invalid_input_is_rejected(String sku, Int32 quantity) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.<>c__DisplayClass6_0.<Invalid_input_is_rejected>b__0() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+  Failed Orders.Tests.DomainTests.Invalid_input_is_rejected(sku: "SKU-1", quantity: 1001) [< 1 ms]
+  Error Message:
+   Assert.Throws() Failure: Exception type was not an exact match
+Expected: typeof(Orders.InvalidOrder)
+Actual:   typeof(System.NotImplementedException)
+---- System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.Tests.DomainTests.Invalid_input_is_rejected(String sku, Int32 quantity) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.<>c__DisplayClass6_0.<Invalid_input_is_rejected>b__0() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 85
+  Failed Orders.Tests.DomainTests.Reusing_key_with_different_content_conflicts [< 1 ms]
+  Error Message:
+   System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.Reusing_key_with_different_content_conflicts() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 50
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.DomainTests.Concurrent_replay_creates_one_order [19 ms]
+  Error Message:
+   System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.<>c__DisplayClass2_0.<Concurrent_replay_creates_one_order>b__3() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 56
+   at System.Threading.Tasks.Task`1.InnerInvoke()
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunFromThreadPoolDispatchLoop(Thread threadPoolThread, ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.Tasks.Task.ExecuteWithThreadLocal(Task& currentTaskSlot, Thread threadPoolThread)
+--- End of stack trace from previous location ---
+   at Orders.Tests.DomainTests.Concurrent_replay_creates_one_order() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 56
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.DomainTests.Publication_failure_keeps_outbox_for_restart [< 1 ms]
+  Error Message:
+   System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.Publication_failure_keeps_outbox_for_restart() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 71
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.DomainTests.Unauthorized_owner_cannot_read_order [< 1 ms]
+  Error Message:
+   System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.Unauthorized_owner_cannot_read_order() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 88
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.DomainTests.Canceled_submission_does_not_write [1 ms]
+  Error Message:
+   Assert.ThrowsAny() Failure: Exception type was not compatible
+Expected: typeof(System.OperationCanceledException)
+Actual:   typeof(System.NotImplementedException)
+---- System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.Tests.DomainTests.Canceled_submission_does_not_write() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 80
+--- End of stack trace from previous location ---
+----- Inner Stack Trace -----
+   at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.<>c__DisplayClass5_0.<Canceled_submission_does_not_write>b__0() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 80
+[xUnit.net 00:00:00.44]     Orders.Tests.DomainTests.Invalid_or_unrecognized_event_is_dropped [FAIL]
+[xUnit.net 00:00:00.44]     Orders.Tests.DomainTests.Replayed_key_survives_new_engine_instance [FAIL]
+[xUnit.net 00:00:00.44]     Orders.Tests.DomainTests.Duplicate_delivery_after_worker_restart_has_one_receipt [FAIL]
+  Failed Orders.Tests.DomainTests.Invalid_or_unrecognized_event_is_dropped [1 ms]
+  Error Message:
+   System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.OrdersEngine.Process(OrderEvent message, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 28
+   at Orders.Tests.DomainTests.Invalid_or_unrecognized_event_is_dropped() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 94
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.DomainTests.Replayed_key_survives_new_engine_instance [< 1 ms]
+  Error Message:
+   System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.Replayed_key_survives_new_engine_instance() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 42
+--- End of stack trace from previous location ---
+  Failed Orders.Tests.DomainTests.Duplicate_delivery_after_worker_restart_has_one_receipt [< 1 ms]
+  Error Message:
+   System.NotImplementedException : MemoryStore
+  Stack Trace:
+     at Orders.OrdersEngine.Submit(String owner, String key, CreateOrder input, CancellationToken ct) in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/src/Orders/Domain.cs:line 26
+   at Orders.Tests.DomainTests.Duplicate_delivery_after_worker_restart_has_one_receipt() in /Users/abhishek/Documents/datavedam/event-driven-orders-retrospective/tests/Orders.Tests/DomainTests.cs:line 61
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:    12, Passed:     0, Skipped:     0, Total:    12, Duration: 141 ms - Orders.Tests.dll (net10.0)
