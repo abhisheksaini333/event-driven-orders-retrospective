@@ -5,7 +5,7 @@
 | .NET SDK / runtime | 10.0.401 / 10.0.11 | 6.0.100 / 6.0.0 |
 | Dapr | 1.18.4 | 1.5.0 |
 | Keycloak | 26.7.4 | 15.0.2 |
-| Redis | 7.4.5-alpine | Not used as a historical compatibility claim |
+| Redis | 7.4.5-alpine | — |
 | Argo CD | Not executed; manifest exercise only | 2.1.7 |
 
 The executable targets .NET 10 and uses ASP.NET Core minimal hosting. The SDK is pinned in `global.json`, dependencies are locked in `packages.lock.json`, and container tags are explicit. .NET 6 is no longer supported; the earlier pins in [versions.json](../infra/historical-2021/versions.json) are comparison inputs rather than executable deployment settings. The current code also uses newer C# syntax and is not asserted to compile unchanged with the earlier SDK. [Microsoft .NET download](https://dotnet.microsoft.com/en-us/download/dotnet/10.0), [.NET support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core).

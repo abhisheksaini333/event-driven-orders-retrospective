@@ -28,7 +28,7 @@ python3 scripts/benchmark.py --requests 100 --concurrency 4 --output .local/benc
 kubectl kustomize infra/k8s
 ```
 
-CI runs the tests, locked restore, build, fault-injection demo and a smaller 40-request baseline. The workflow has been written and its main commands run locally; a hosted GitHub Actions execution is separate evidence.
+The [hosted Ubuntu verification run](https://github.com/abhisheksaini333/event-driven-orders-retrospective/actions/runs/36570170827) passed at commit `67aac5c`: locked restore, 26 tests, dependency audit, Docker build, 13 fault-injection checks and 40/40 accepted and fulfilled orders. Its runner measurements are separate from the local benchmark above.
 
 ## Checks still outside this record
 
