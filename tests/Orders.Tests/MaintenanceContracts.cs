@@ -124,3 +124,21 @@ public partial class MaintenanceContracts
         await Assert.ThrowsAnyAsync<ArgumentException>(()=>publisher.Publish(new("bad","bad"),default)); Assert.Equal(0,calls);
     }
 }
+
+public partial class MaintenanceContracts
+{
+    [Fact] public async Task StateReadsRejectEquivalentEscapedReceiptEntries()
+    {
+        var ledger = ValidLedger();
+        var order = ledger.Orders.Values.Single();
+        ledger.Orders[order.Id] = order with { Status = "fulfilled" };
+        ledger.Receipts.Add(order.EventId);
+        var json = JsonSerializer.Serialize(ledger, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var encodedReceipt = @"\u0062" + order.EventId[1..];
+        var singleEscaped = json.Replace("\"receipts\":[\"" + order.EventId + "\"]", "\"receipts\":[\"" + encodedReceipt + "\"]");
+        var accepted = await Responding(singleEscaped).Read(default);
+        Assert.Equal(order.EventId, Assert.Single(accepted.Value.Receipts));
+        json = json.Replace("\"receipts\":[\"" + order.EventId + "\"]", "\"receipts\":[\"" + order.EventId + "\",\"" + encodedReceipt + "\"]");
+        await Assert.ThrowsAnyAsync<HttpRequestException>(() => Responding(json).Read(default));
+    }
+}

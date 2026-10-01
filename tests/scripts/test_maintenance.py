@@ -106,3 +106,10 @@ class MaintenanceTests(unittest.TestCase):
             with self.assertRaises(ValueError):module.nuget_findings(report)
         for report in ({'SchemaVersion':2,'Results':[None]},{'SchemaVersion':2,'Results':[{'Vulnerabilities':{}}]}):
             with self.assertRaises(ValueError):module.trivy_findings(report)
+
+    def test_snapshot_inspection_is_verified_and_offline(self):
+        self.load('demo.py');module=self.load('ledger-snapshot.py');path=self.root/'snapshot.json';path.write_text(json.dumps(self.snapshot(module)))
+        output=io.StringIO()
+        with patch.object(module,'compose',side_effect=AssertionError('network forbidden')),contextlib.redirect_stdout(output):
+            self.assertEqual(module.main(['inspect','--input',str(path)]),0)
+        result=json.loads(output.getvalue());self.assertEqual(result['pending_events'],0);self.assertEqual(result['source_version'],'1');self.assertEqual(result['orders'],0)

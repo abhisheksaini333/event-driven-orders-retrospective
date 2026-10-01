@@ -83,3 +83,5 @@ Snapshot dates must be nullable ISO timestamps with a timezone and supported cal
 State reads use one linked deadline across response headers, retry delays and bounded body streaming. The configured named HTTP client timeout (five seconds by default) and caller cancellation both stop incomplete body reads.
 
 Benchmark `--output` now requires a new destination, creates it with mode 0600 and removes partial output on a write failure. Choose a fresh filename for every run.
+
+Run `python scripts/ledger-snapshot.py inspect --input snapshot.json` before restore to verify digest, schema and source metadata and inspect order, pending-event and receipt counts. This command performs no Docker or Redis requests.

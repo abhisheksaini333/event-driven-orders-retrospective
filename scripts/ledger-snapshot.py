@@ -113,6 +113,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(); commands = parser.add_subparsers(dest='action', required=True)
     export = commands.add_parser('export'); export.add_argument('--output', type=Path, required=True); export.add_argument('--key', default='orders-ledger-v1')
     load = commands.add_parser('restore'); load.add_argument('--input', type=Path, required=True); load.add_argument('--key', default='orders-ledger-v1')
+    inspect = commands.add_parser('inspect'); inspect.add_argument('--input', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.action == 'export':
@@ -121,8 +122,12 @@ def main(argv=None):
                 json.dump(snapshot, target, indent=2); target.write('\n'); target.flush(); os.fsync(target.fileno())
         else:
             if args.input.stat().st_size > MAXIMUM_BYTES * 2: raise ValueError('Snapshot file exceeds size limit.')
-            snapshot = strict_json(args.input.read_text()); restore(snapshot, args.key)
-        print(json.dumps({'status': 'passed', 'action': args.action, 'orders': len(snapshot['ledger']['orders'])})); return 0
+            snapshot = strict_json(args.input.read_text())
+            if args.action == 'restore': restore(snapshot, args.key)
+            else: verify(snapshot)
+        result = {'status': 'passed', 'action': args.action, 'orders': len(snapshot['ledger']['orders'])}
+        if args.action == 'inspect': result.update(pending_events=len(snapshot['ledger']['outbox']), receipts=len(snapshot['ledger']['receipts']), source_key=snapshot['source_key'], source_version=snapshot['source_version'], sha256=snapshot['sha256'])
+        print(json.dumps(result)); return 0
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as error:
         print(json.dumps({'status': 'failed', 'action': args.action, 'error_type': type(error).__name__})); return 1
 
